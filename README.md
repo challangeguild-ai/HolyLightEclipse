@@ -11,7 +11,7 @@ A gold-and-violet HUD for Azeroth Survivors, built around clear combat informati
 
 ## Download
 
-[Download HolyLightEclipse-0.8.3.zip](https://github.com/challangeguild-ai/HolyLightEclipse/raw/refs/heads/main/downloads/HolyLightEclipse-0.8.3.zip)
+[Download HolyLightEclipse-0.8.3.zip](https://github.com/challangeguild-ai/HolyLightEclipse/releases/download/v0.8.3/HolyLightEclipse-0.8.3.zip)
 
 [Magyar bemutató](docs/ADDON-PAGE-HU.md) · [SHA-256](downloads/SHA256SUMS.txt)
 
@@ -69,4 +69,3 @@ The design and recent gameplay feedback focus on Paladin. Other classes depend o
 Optional displays depend on available APIs. Unknown timers are not invented. The elite list covers the game's published guardian/lair entries, not every roaming elite. Jewelry metadata without a native item link does not provide fabricated per-item stats. Classic target auras may have no duration data. The native level-up selection cards are not reskinned.
 
 This is an independent community addon. It is not an official Blizzard or Azeroth Survivors product.
-

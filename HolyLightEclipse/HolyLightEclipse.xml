@@ -1,0 +1,9 @@
+<Ui xmlns="http://www.blizzard.com/wow/ui/">
+  <Frame name="HLEController">
+    <Scripts>
+      <OnLoad>HLE_OnLoad(this);</OnLoad>
+      <OnEvent>HLE_OnEvent(event, arg1);</OnEvent>
+      <OnUpdate>HLE_OnUpdate(arg1);</OnUpdate>
+    </Scripts>
+  </Frame>
+</Ui>

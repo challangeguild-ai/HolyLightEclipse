@@ -1,0 +1,34 @@
+name: Publish verified addon
+on:
+  push:
+    paths:
+      - release-assets/**
+      - scripts/restore_assets.py
+      - .github/workflows/publish.yml
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Restore and verify release assets
+        run: python3 scripts/restore_assets.py
+      - name: Publish source assets
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add HolyLightEclipse/Media downloads/HolyLightEclipse-0.8.3.zip
+          if ! git diff --cached --quiet; then
+            git commit -m "Publish verified 0.8.3 media and addon download"
+            git push
+          fi
+      - name: Create versioned release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if ! gh release view v0.8.3 >/dev/null 2>&1; then
+            gh release create v0.8.3 --target main --title "Holy Light x Eclipse 0.8.3 — Rehard" --notes-file RELEASE-NOTES.md
+          fi
+          gh release upload v0.8.3 downloads/HolyLightEclipse-0.8.3.zip downloads/SHA256SUMS.txt --clobber

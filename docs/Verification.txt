@@ -1,0 +1,118 @@
+PASS: TOC interface 11200 and saved variables
+PASS: TOC file existence and order
+PASS: XML well-formed and controller scripts present
+PASS: Core.lua avoids known Lua 5.1+/modern API constructs
+PASS: Skills.lua avoids known Lua 5.1+/modern API constructs
+PASS: ActionSkin.lua avoids known Lua 5.1+/modern API constructs
+PASS: Nameplates.lua avoids known Lua 5.1+/modern API constructs
+PASS: Equipment.lua avoids known Lua 5.1+/modern API constructs
+PASS: Loot.lua avoids known Lua 5.1+/modern API constructs
+PASS: Native.lua avoids known Lua 5.1+/modern API constructs
+PASS: Tracking.lua avoids known Lua 5.1+/modern API constructs
+PASS: Extras.lua avoids known Lua 5.1+/modern API constructs
+PASS: View.lua avoids known Lua 5.1+/modern API constructs
+PASS: Client without math.huge: finite, NaN and infinity validation
+PASS: Missing AZS API: native player and XP fallback
+PASS: Idempotent initialization
+PASS: Playing: run values, zero health, shield, target, spells and meters
+PASS: Paused and choosing: use server cooldown and clock without wall-time subtraction
+PASS: Ready/dead/victory/nil phases suppress stale run data
+PASS: New run replaces old values
+PASS: Malformed values, zero maxima and throwing optional API degrade gracefully
+PASS: Boss/guardian overflow and boolean flags
+PASS: More than seven fallback spells: bounded render
+PASS: Disable, enable, scaling, reset and independently draggable meter
+PASS: Stored levels only opened in active run with pending choices
+PASS: OnUpdate throttles and stops HUD on render exception
+PASS: AZS cooldown interpolation, pause, server reset and run rollover
+PASS: Native icons, racial slot seven, cooldown sync and pause freeze
+PASS: Meter rows, compact panel and dynamic boss area
+PASS: Native HUD takeover and exact restoration, including pre-hidden parts
+PASS: Renderer failure restores replaced native HUD
+PASS: Ready phase waits for current-run membership before displaying native icons
+PASS: AZS ignores stale cached widget texture when native action data is absent
+PASS: Cleared target hides entire target branch despite stale AZS data and unlock mode
+PASS: Live target wins over stale target identity
+PASS: Move-to-begin suppression preserves other messages and restores native delivery
+PASS: Unknown native prompt frame is discovered while own caption and other text survive
+PASS: Sparse action slots compact into centered row without changing source IDs
+PASS: Player panel stays fixed through target acquisition and clearing
+PASS: New run discards old native abilities until a fresh snapshot, including empty snapshots
+PASS: Native action button is reskinned with its own scripts and restored on run change/off
+PASS: Nameplates read native health, refresh recycled names and restore original regions
+PASS: Nameplate toggle restores originally disabled native preference
+PASS: Five equipped jewelry slots show native icons and native item-stat tooltip
+PASS: Optional nameplate failure leaves the main HUD active
+PASS: Spell feed ignores cached Lua table length and renders more than seven learned abilities
+PASS: Optional complete loadout supplies missing/passive spell icons with exact run identity
+PASS: Boss bars clear on death before phase update and stay clear until fresh living units arrive
+PASS: Loot parses self loot only, retains native details and does not invent collection status
+PASS: Loot cards preserve repeated drops, deduplicate mirrored channels and restore native fallback
+PASS: Native API calls have exact arity and preserve three meter returns
+PASS: Missing native icons: every reported paladin ability still has an icon and current cooldown
+PASS: New spell publication refreshes the spellbook cache without SPELLS_CHANGED
+PASS: Run, boss and healing tabs use native values and missing APIs show no stale run rows
+PASS: Boss debuffs use spawn id, stack counts, live remaining time and clear on death
+PASS: Buff and summon timers need fresh run feeds, pause natively, and clear at reset/off
+PASS: Guardian/cache guidance requires same run, map and space and uses hero facing
+PASS: Jewelry diary observes current loadout only, persists no run tokens, and paginates
+PASS: Settings and three layout profiles restore copied positions and module choices
+PASS: Target aura icons disappear with the target and never infer classic durations
+PASS: Player helpful/harmful auras sit above the player frame; target auras above target
+PASS: Elite list follows equipment, discovers map names, lists respawns and rejects old runs
+PASS: First ready render rejects already cached spell timestamp until fresh publication
+PASS: CenterBridge.tga valid power-of-two RGBA texture
+PASS: ClockCenter.tga valid power-of-two RGBA texture
+PASS: ClockFrame.tga valid power-of-two RGBA texture
+PASS: ClockLeft.tga valid power-of-two RGBA texture
+PASS: ClockRight.tga valid power-of-two RGBA texture
+PASS: Eclipse.tga valid power-of-two RGBA texture
+PASS: MainCenter.tga valid power-of-two RGBA texture
+PASS: MainCrest.tga valid power-of-two RGBA texture
+PASS: MainFrame.tga valid power-of-two RGBA texture
+PASS: MainLeft.tga valid power-of-two RGBA texture
+PASS: MainSkills1.tga valid power-of-two RGBA texture
+PASS: MainSkills2.tga valid power-of-two RGBA texture
+PASS: MainSkills3.tga valid power-of-two RGBA texture
+PASS: MainSkills4.tga valid power-of-two RGBA texture
+PASS: MainTarget.tga valid power-of-two RGBA texture
+PASS: MeterFrame.tga valid power-of-two RGBA texture
+PASS: Portrait04.tga valid power-of-two RGBA texture
+PASS: PortraitRing.tga valid power-of-two RGBA texture
+PASS: Skill04.tga valid power-of-two RGBA texture
+PASS: SkillFrame.tga valid power-of-two RGBA texture
+PASS: UnitPanel04.tga valid power-of-two RGBA texture
+PASS: White.tga valid power-of-two RGBA texture
+PASS: Wings.tga valid power-of-two RGBA texture
+PASS: Ornate skill frame preserves transparent icon opening
+PASS: No UI name banner or startup message in View.lua
+PASS: MainLeft runtime texture within 256-pixel limit
+PASS: MainCenter runtime texture within 256-pixel limit
+PASS: MainTarget runtime texture within 256-pixel limit
+PASS: MainSkills1 runtime texture within 256-pixel limit
+PASS: MainSkills2 runtime texture within 256-pixel limit
+PASS: MainSkills3 runtime texture within 256-pixel limit
+PASS: MainSkills4 runtime texture within 256-pixel limit
+PASS: ClockLeft runtime texture within 256-pixel limit
+PASS: ClockCenter runtime texture within 256-pixel limit
+PASS: ClockRight runtime texture within 256-pixel limit
+PASS: Oversized single-sheet textures no longer loaded
+PASS: Standalone crest has transparent corners and visible circular center
+PASS: View uses small crest instead of rectangular center
+PASS: Static panel behind player HP is transparent
+PASS: Center bridge preserves gold ornament with transparent outer fill
+PASS: HP tracks stay transparent and retired connector is not drawn
+PASS: UnitPanel04 active redesign texture within 256-pixel limit
+PASS: Portrait04 active redesign texture within 256-pixel limit
+PASS: Skill04 active redesign texture within 256-pixel limit
+PASS: New skill border preserves icon opening
+PASS: Retired full-width lower plate not used
+PASS: ZIP integrity and single correctly named addon root
+PASS: No executables or native libraries in addon ZIP
+
+Runtime: Lupa Lua 5.1, restricted mock WoW API. NOT a WoW/AZS client test.
+Lua 5.0 compatibility checked statically for known incompatible constructs; not parsed with a Lua 5.0 interpreter.
+XML checked for well-formedness; not validated by the game loader.
+No live game rendering, interaction, persistence or browser installation test was performed.
+Publication package: SOURCES.md private chat reference removed; Lua/XML/textures unchanged.
+SHA256 publication ZIP: 60038401c65e544b273a18fb3f4a2b0b749f3e265b0808d9ddf634269f96f6f1
