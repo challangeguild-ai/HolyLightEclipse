@@ -1,0 +1,17 @@
+[
+  {
+    "file": "gameplay-coop-0.9.5.png",
+    "sha256": "e0cf102b29cb00f850e5c2bce736c1a4ad17b67e48ab13e4d2985411f977ce4e",
+    "kind": "unaltered user-provided in-game screenshot"
+  },
+  {
+    "file": "boss-loot-hover-0.9.5.png",
+    "sha256": "7d3312699d2e1280abdc7e4f4142fb3b97298fc60beb0b8aa12e80508a2a248e",
+    "kind": "unaltered user-provided in-game screenshot"
+  },
+  {
+    "file": "interface-overview-en.png",
+    "sha256": "97b6ea1eff0a4e227e3cb1978682cb6c24d0a318a2e373bfa205fc64e0c49563",
+    "kind": "AI-edited explanatory illustration"
+  }
+]

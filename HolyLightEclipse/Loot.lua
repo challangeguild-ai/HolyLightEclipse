@@ -72,12 +72,16 @@ function H.ClearLoot()
     if H.loot then H.loot:Hide(); end
 end
 function H.LootEvent(eventName,text)
-    if not HLE_DB or not HLE_DB.enabled or not HLE_DB.showLoot or H.suspended then return false; end
+    if not HLE_DB or not HLE_DB.enabled or H.suspended then return false; end
     local entry,recognized=H.ParseLoot(text);
     if not entry then
         if recognized then fallbackUntil=clock+8; intakeConfirmed=false; H.RestoreLoot(); end
         return false;
     end
+    if H.ObserveBossLoot then
+        local ok,err=pcall(H.ObserveBossLoot,entry,"self loot"); if not ok then H.errors.BossLoot=tostring(err); end
+    end
+    if not HLE_DB.showLoot then return false; end
     local seen=deliveries[text] or {}; deliveries[text]=seen;
     seen[eventName]=(seen[eventName] or 0)+1;
     local other=eventName=="CHAT_MSG_LOOT" and "CHAT_MSG_SYSTEM" or "CHAT_MSG_LOOT";

@@ -65,6 +65,23 @@ local function Skin(plate)
         overlay=overlay,bar=bar,title=title,value=value,levelText=levelText,edges=edges};
     byFrame[plate]=record; table.insert(records,record);
 end
+-- Legacy plates expose no stable actor id. Only use a uniquely highlighted target.
+function H.PlateThreatColor(name)
+    if H.Exists("target")~=true or H.Call("UnitName","target")~=name then return nil; end
+    local candidates=0;
+    for i=1,table.getn(records) do local r=records[i];
+        if r.plate:IsShown() and r.name:GetText()==name and Alpha(r.plate)>=0.99 then candidates=candidates+1; end
+    end
+    if candidates~=1 or H.Exists("targettarget")~=true then return nil; end
+    if type(UnitIsUnit)~="function" then return nil; end
+    local ok,self=pcall(UnitIsUnit,"targettarget","player"); if not ok then return nil; end
+    if self==true or self==1 then return {0.85,0.16,0.20},"self"; end
+    for i=1,4 do
+        local valid,party=pcall(UnitIsUnit,"targettarget","party"..i); if not valid then return nil; end
+        if party==true or party==1 then return {0.96,0.72,0.12},"party"; end
+    end
+    return {0.25,0.73,0.35},"other";
+end
 local function Draw(record,s)
     if not record.plate:IsShown() then record.overlay:Hide(); return; end
     local low,high=record.health:GetMinMaxValues(); local value=H.Number(record.health:GetValue());
@@ -86,11 +103,10 @@ local function Draw(record,s)
     if not kind and s.active then
         for i=1,table.getn(s.bosses) do if H.Table(s.bosses[i]).name==name then kind="boss"; break; end end
     end
-    local color={0.72,0.16,0.27};
-    if kind=="boss" or kind=="final" then color={0.63,0.29,0.82};
-    elseif kind=="guardian" then color={0.15,0.62,0.72};
-    elseif kind=="elite" then color={0.84,0.46,0.12}; end
-    record.bar:SetStatusBarColor(unpack(color));
+    local color={0.48,0.42,0.60}; -- Unknown threat is neutral, never a guessed red/yellow/green.
+    local threat,status=H.PlateThreatColor(name);
+    if threat then color=threat; end
+    record.threat=status; record.bar:SetStatusBarColor(unpack(color));
     local edge=target and {0.80,0.57,1} or {0.80,0.64,0.35};
     for i=1,4 do record.edges[i]:SetVertexColor(unpack(edge)); end
     local nativeLevel=record.level and record.level:GetText();

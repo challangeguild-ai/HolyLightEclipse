@@ -33,3 +33,36 @@ Az opcionális `AZS_GetMeterContext` / `AZS_GetMeterLoadout` hívási aritása, 
 - A helyi `work/dragon-reference/docs/AzerothSurvivors-Addon-API.md` dokumentált AZS_GetDebuffs, AZS_GetHealing, AZS_GetBossMeter, AZS_GetTimers, AZS_GetSummons, AZS_GetPlayerPosition, AZS_GetLairs és MeterLoadout runJewelry szerződése szolgált a saját modulok adatforrásául. [API elsődleges projektforrás](https://github.com/migwynkriid13/SurvivorsDragonUi/blob/1ca877cb9eb27763d0a98ad71b8c7ace598d911a/docs/AzerothSurvivors-Addon-API.md). Ez a projektben megőrzött API-leírás, nem élő kliensverifikáció.
 - Saját modulok: Tracking.lua és Extras.lua. A HUD színei, keretei és alapelrendezése saját korábbi anyag maradt.
 - Forrásböngészés nem egyenlő működési igazolással; a 0.8.0 ellenőrzési jelentése külön rögzíti a szimuláció korlátait.
+
+## 0.9.0: party, schedule, minimap
+
+A meglévő API-referencia AZS_SCHEDULE {index,at,name,final,state} szerződése és AZSBOSSES publikációja adja a boss-idővonalat. A party a natív GetNumPartyMembers és party1…party4 Unit* gettereket olvassa, a revive az AZS_GetRevive adata. A KeijinUI Party.lua forrása összehasonlításul szolgált az API-használat ellenőrzésére; kódot nem másoltunk át. A játék lobbyjának maximális létszámát a más forkokról szóló webes találatokból nem vettük át tényként.
+
+GroupMap.lua és Timeline.lua saját modulok. A TimelineSwords.tga, TimelineSkull.tga és MinimapRim.tga saját geometrikus RGBA textúrák, nem más addonból átvett képek. A 0.9.0 nem élő kliensben ellenőrzött kiadás.
+
+## 0.9.1 javítások
+
+A felhasználó 0.9.0 kliensfotója alapján a party háttér, minimapmaradványok, későn látszó menetrend, targetaurák és tükrözött target elrendezés lett javítva. A helyi API-referencia localClock HUD-partja adja a minimap óraátvételét; a natív party/buff/minimap kontrollokat csak saját helyettesítő mellett, visszaállíthatóan rejtjük. A menetrend-cache csak korábban megfigyelt tényadat, nem a Keijin adatbázisa és nem hiteles aktuális győzelmi állapot. A tükrözött TargetPanel091 saját UnitPanel04 grafikánk vízszintes tükrözése. A 0.9.1 szimulált, nem élő kliensben ellenőrzött.
+
+## 0.9.2: egységes felső panel
+
+A felhasználó 0.9.1 képe alapján a különálló idővonal-doboz megszűnt. A közös háttér, peremek és saját PanelCorner092 geometrikus dísz közvetlenül a HLEEncounter keret részei. A header és timeline nem két egymás alá tett ablak. A minimap saját vezérlőinek elhelyezése a natív map határain belülre került. Új játékadatot és külső kódot ez a változás nem vezet be.
+
+
+## 0.9.3: HP-panelek és combat text
+
+A felhasználó 0.9.2 játékfotójára épülő saját átrendezés: az elitek HP-ja az AZS_LAIRS.id ↔ AZS_GetGuardians().id pontos kapcsolaton a táborlistában, a boss HP külön a felső panel alatt. A dokumentált empty állapot önmagában nem bizonyít korábbi ölést. A saját TimeBadge093.tga egyszerű geometrikus óralap.
+
+A saját CombatText.lua a fent hivatkozott projekt API-dokumentációjának world-anchored combat-text v1 szerződését használja (AZS_GetCombatTextEvents, AZS_ProjectCombatTextAnchors, frame-handler), nem más addon rendererének átvétele. A natív CombatDamage opció a dokumentáció szerint független a kimenő események olvasásától. Az AZS_GetHealing összegéből saját, publikációnkénti kapott-gyógyítás jelzés készül. A teljes API-adatfolyam nem tartalmaz bejövő heal eseményt. A klasszikus UnitIsUnit/targettarget csak opcionális és korlátozott aggrószínezést ad; teljes threat-tábla vagy általános nameplate–unit kötés nincs igazolva. A build szimulált, nem élő klienspróba.
+
+
+## 0.9.4: ready-menetrend és chat
+
+A felhasználó 0.9.3 játékfotója és visszajelzése alapján ready fázisban nem jelennek meg előzetes/cached bossidők, és nem mentünk ready adatból új tervet. A nevek maradnak; a friss aktív schedule továbbra is a saját idővonal adatforrása. A chatszélesség kezelése saját, visszaállítható natív frame-méretezés, a fejlécváltozás csak elrendezés. Külső kód vagy új API-feltételezés nem került be.
+
+
+## 0.9.5: saját bossloot tooltip és tényszerű referenciakatalógus
+
+- A 2026-11-04-én letöltött [bosslista](https://azeroth-survivors.org/bosses/) 65 hivatkozott bossoldalának tényszerű boss–kaszt–tárgy kapcsolataiból saját struktúrájú `BossLootData.lua` készült. Példa: [Kirtonos](https://azeroth-survivors.org/bosses/10506/). Az összes oldal URL-je, darabszám és a generált Lua SHA256 értéke a `BossLoot-reference.json` fájlban szerepel. A forrás független játékútmutató, nem hivatalos, élő API-válasz. A játékfrissítések módosíthatják a droplistát; esélyeket nem tárolunk.
+- Csak tárgyazonosító, név, kaszt, tárgyhely, tier, natív ikonnév és bosskapcsolat került át tényszerű referenciaként. Weboldal-programkód, leíró szöveg, grafika, Azerloot-adatbázis vagy más addon megvalósítása nem került a csomagba.
+- A `BossLoot.lua` saját UI, bizonyíték/név szerint elkülönített szerzésnapló és kézi jelölés. Az automatikus pozitív állapot forrása a már meglévő saját lootparser vagy a natív GetInventoryItemLink pontos azonosítója. Nem állít teljes Collection API-t vagy automatikus hiányzó státuszt. A forrásadatokból ellenőrzött katalógus nem jelent élő klienspróbát.

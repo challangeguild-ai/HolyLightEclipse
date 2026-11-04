@@ -121,6 +121,7 @@ local function ZoneKey()
     return H.Text(z.zone, "") .. ":" .. H.Text(z.hero, "");
 end
 function H.StartSkillRun(reason, state)
+    if H.ResetTimeline then H.ResetTimeline(); end
     H.liveLoadout=nil;
     H.ResetSkills(); H.ResetSpellBook(); snapshot = nil; observedStamp = H.Number(AZS_SPELLS_UPDATED);
     pendingCapture=nil; metadata=nil; metadataRun=nil; metadataAt=nil; metadataTick=0;

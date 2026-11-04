@@ -1,71 +1,67 @@
-# Holy Light × Eclipse — 0.8.3
+# Holy Light × Eclipse — 0.9.5
 
-A gold-and-violet HUD for Azeroth Survivors, built around clear combat information and a compact action bar.
+A gold-and-violet HUD for Azeroth Survivors. **By Rehard.**
 
-**Maintainer:** Rehard  
-**Category:** HUD & interface  
-**Version:** 0.8.3  
-**Settings:** `/hle`  
-**Addon folder:** `HolyLightEclipse`  
-**Interface declaration:** `11200`
+[Download the latest packaged addon](https://github.com/challangeguild-ai/HolyLightEclipse/releases/download/v0.9.5/HolyLightEclipse-0.9.5.zip) · [Release notes](https://github.com/challangeguild-ai/HolyLightEclipse/releases/tag/v0.9.5) · [Screenshots](#screenshots) · [SHA-256](downloads/SHA256SUMS-0.9.5.txt)
 
-## Download
+## Screenshots
 
-[Download HolyLightEclipse-0.8.3.zip](https://github.com/challangeguild-ai/HolyLightEclipse/releases/download/v0.8.3/HolyLightEclipse-0.8.3.zip)
+These two images are unaltered, player-supplied screenshots of the current 0.9.5 addon in desktop gameplay. They are examples from one player's setup, not proof of every feature or platform.
 
-[Magyar bemutató](docs/ADDON-PAGE-HU.md) · [SHA-256](downloads/SHA256SUMS.txt)
+### Full HUD and co-op party
 
-## What does it do?
+![Holy Light × Eclipse 0.9.5 in Gates of Ahn'Qiraj: integrated boss timeline, elite health, jewelry stats, combat meter, player and target frames, abilities and co-op party.](docs/screenshots/gameplay-coop-0.9.5.png)
 
-Holy Light × Eclipse brings player and target frames, ability cooldowns, run statistics, loot notifications and guardian tracking into one consistent interface. Its paladin-inspired artwork uses gold borders and violet accents, while keeping the centre of the battlefield open.
+### Boss loot on hover
 
-The player frame stays in place when you acquire or clear a target. The target panel disappears when there is no target, and the small central emblem stays visible.
+![Hovering Kurinnaxx shows the Paladin's possible Redemption Helm drop and a recorded self-loot acquisition; the timeline marks the defeated boss with a skull.](docs/screenshots/boss-loot-hover-0.9.5.png)
+
+### English interface guide — explanatory illustration
+
+**AI-edited annotation based on a player screenshot.** The guide explains the numbered regions; its reconstructed game text and numbers are not an unaltered gameplay capture. Use the two original images above when you need authentic in-game screenshots.
+
+![English annotated interface guide for Holy Light × Eclipse.](docs/screenshots/interface-overview-en.png)
 
 ## Features
 
-- Player health, power, XP and supported absorb information; target health and level.
-- Compact ability icons and cooldown numbers, using the current run's published ability data. New runs clear the previous run's ability display.
-- Player buffs/debuffs above the player frame and target auras above the target frame. Supported summon lifetimes and talent/item timers appear with player effects.
-- Run clock, next-boss information, kills, collected gold and the next cache price.
-- A small draggable meter with RUN, BOSS and HEAL views, using the game's reported damage and healing values.
-- Custom enemy nameplates with health percentages and native level information where available.
-- An equipment panel with native item tooltips and separately labelled run-wide statistics.
-- An elite/guardian window above equipment. It reads names from the current map's lair data, lists their state and shows the game's reported respawn times. There are no navigation arrows or cache markers in this window.
-- Current-run jewelry and a local diary of actually observed items, with up to 200 entries.
-- Loot notification cards styled to match the HUD.
-- A settings window, movable supported panels, scaling and three saved layout profiles.
+- Fixed player frame with HP, power, level, XP and supported absorb information; mirrored target frame, hidden when no target exists.
+- Player and target buffs/debuffs above their respective frames.
+- Compact auto-cast ability icons and current-run cooldowns; reset handling between runs.
+- One upper run panel with the run clock, kills, gold, next chest price and boss timeline. Crossed swords indicate upcoming/alive bosses; skulls use reported defeated states. The countdown follows run time and pauses with the game.
+- Separate boss HP bars below the timeline, without aura rows. Elite/guardian HP stays in the left lair list; observed deaths show a skull and reported respawn time.
+- Class-specific boss-loot panels on timeline hover: a dated reference for 65 bosses and nine classes. Recorded self-loot/equipped evidence and explicit manual collected/missing marks are kept distinct.
+- A draggable combat meter with RUN/BOSS/HEAL tabs, 4–16 visible rows, pagination and independently adjustable width.
+- Five jewelry slots, native item tooltips, run-wide bonuses and an observed-item diary.
+- Compact co-op frames for up to four teammates (five players including yourself).
+- A matching minimap skin, native zoom controls and local clock where supported.
+- Custom nameplates, optional outgoing damage text and received-healing feedback where the necessary APIs exist.
+- Matching loot notifications, narrower chat, movable panels and saved layout profiles.
 
-## Installation
+## Install or update
 
-Download the packaged **HolyLightEclipse-0.8.3.zip** release.
+Download **HolyLightEclipse-0.9.5.zip** from the release above. Close the game and extract its single `HolyLightEclipse` folder into the game's AddOns folder. In the native client used for development, this is `benilla-config/AddOns/`; use the game's Open AddOns Folder option if available.
 
-For desktop play, use the game's **Open AddOns Folder** option if available to find the correct folder. Close the game, then extract the `HolyLightEclipse` folder there. In an Interface-based setup the path is:
+The layout must be `AddOns/HolyLightEclipse/HolyLightEclipse.toc`, with no extra nested folder. For an Interface-based loader, use `Interface/AddOns/HolyLightEclipse/` instead. Replace the previous addon folder when updating; you do not need to erase your saved settings. Disable overlapping full HUD replacements.
 
-`Interface/AddOns/HolyLightEclipse/HolyLightEclipse.toc`
+The TOC declares `## Interface: 11200`. This targets the Azeroth Survivors client API; it is not a general vanilla WoW or modern WoW addon. Browser installation is **not verified** for this release. GitHub's automatically generated source archives are not the recommended install package.
 
-The `.toc` must be directly inside `HolyLightEclipse`, without another nested addon folder. Replace the existing addon folder when updating and restart the client. Keep other full HUD replacements disabled while using this addon.
+## Controls
 
-The game's browser ZIP installer is described in the community installation guide, but **this release has not been verified in the browser**. Desktop testing does not establish browser support.
+- `/hle` — HUD controls; `/hle unlock` and `/hle lock` — move/lock supported panels. The meter remains draggable.
+- `/hle meter rows 10` and `/hle meter width 340` — meter size; its `+`/`−` and `<`/`>` controls change rows and pages.
+- `/hle meter run`, `/hle meter boss`, `/hle meter heal` — meter views.
+- Hover a boss name or icon in the timeline for your class's possible gear drops.
+- Right-click an **unconfirmed** drop: collected → missing → automatic/unknown. Confirmed self-loot/equipped evidence is not overwritten by this toggle.
+- `/hle damage`, `/hle healing` — toggle optional outgoing damage / received-healing text.
+- `/hle off` — disable the HUD and restore native elements it owns; `/hle status` — diagnostics.
 
-## Getting started
+## Accuracy and known limits
 
-Open `/hle` for settings. Use `/hle unlock` to move supported panels and `/hle lock` when finished. The meter remains draggable while locked. The elite/guardian window follows the equipment panel; aura rows follow their unit frames.
+- Boss loot is a **static reference retrieved on 4 November 2026**, not a live query of every game's drop table. Updates can change it. No drop percentages or guaranteed drops are claimed. Sources: [manifest](HolyLightEclipse/BossLoot-reference.json) and [source notes](HolyLightEclipse/SOURCES.md).
+- There is no verified complete Collection getter. **UNKNOWN does not mean missing.** Positive observations are stored by class and character name; this diary does not automatically synchronize the full historical collection or detect every imported/reset save. Manual marks are labelled separately. The panel covers the catalogued permanent class gear, not every random ring/trinket roll.
+- Before a run starts, boss times show `--:--` instead of an unverified default/cached schedule. Live countdowns start with the active schedule. Cached names are plans, not proof of current boss states.
+- There is no verified general threat table or stable legacy nameplate-to-unit binding. Red/yellow/green victim-based colouring is only used for an unambiguous target with supported native data. Unknown threat remains neutral; it is not a prediction of an aggro change.
+- Outgoing custom text requires the supported combat-event/projection API. Received-healing feedback is a positive change in the game's effective-healing total, not a per-cast prediction or an overheal display.
+- User screenshots and feedback document desktop use. Automated checks cover files, XML, textures and a restricted Lua 5.1/mock API regression suite; **not a real Lua 5.0 interpreter, every class, every feature or browser gameplay**. See [verification](docs/Verification-0.9.5.txt). The exact build used for the supplied screenshots was not recorded.
 
-Useful commands:
-
-- `/hle meter run`, `/hle meter boss`, `/hle meter heal`
-- `/hle navigation` — toggle the elite/guardian list
-- `/hle journal` — toggle the jewelry/observed-item panel
-- `/hle reset` — reset panel positions and global scale
-- `/hle off` — disable the custom HUD and restore owned native elements
-- `/hle status` — show diagnostic information
-
-## Compatibility and limits
-
-The HUD was developed and iterated with player-supplied in-game screenshots. On 4 November 2026, the player reported that version 0.8.3 appeared to work correctly in their setup. Automated checks cover file structure, XML, texture properties and simulated Lua/API behaviour. This is a user-reported gameplay check, **not independent certification or a test of every feature, class or platform**. The exact game build was not recorded.
-
-The design and recent gameplay feedback focus on Paladin. Other classes depend on the native spellbook/action/loadout icon data; the addon includes a small Paladin/racial icon fallback rather than a full all-class catalogue.
-
-Optional displays depend on available APIs. Unknown timers are not invented. The elite list covers the game's published guardian/lair entries, not every roaming elite. Jewelry metadata without a native item link does not provide fabricated per-item stats. Classic target auras may have no duration data. The native level-up selection cards are not reskinned.
-
-This is an independent community addon. It is not an official Blizzard or Azeroth Survivors product.
+[Detailed Hungarian changelog and instructions](HolyLightEclipse/README-HU.md) · [Source and attribution notes](HolyLightEclipse/SOURCES.md)

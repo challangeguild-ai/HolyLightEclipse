@@ -1,5 +1,5 @@
 -- Lua 5.0 subset: no _G, #, vararg forwarding or modern WoW APIs.
-HLE = { errors = {}, version = "0.8.3", maxSkills = 32 };
+HLE = { errors = {}, version = "0.9.5", maxSkills = 32 };
 local H = HLE;
 function H.Number(v)
     -- math.huge is absent in the user's client. Finite numbers subtract to zero;
@@ -29,6 +29,13 @@ function H.Short(v)
     if math.abs(v) >= 1000000 then return string.format("%.1fM", v / 1000000); end
     if math.abs(v) >= 10000 then return string.format("%.1fk", v / 1000); end
     return string.format("%.0f", v);
+end
+function H.MoneyShort(v)
+    v=H.Number(v); if not v then return "--"; end
+    local a=math.abs(v); local labels={{1e12,"T"},{1e9,"B"},{1e6,"M"},{1e3,"k"}};
+    if a>=1e15 then return string.format("%.1e",v); end
+    for i=1,4 do if a>=labels[i][1] then return string.format("%.1f",v/labels[i][1])..labels[i][2]; end end
+    return string.format("%.0f",v);
 end
 function H.Clock(v)
     v = H.Number(v);
@@ -151,6 +158,10 @@ function H.Read()
         s.target = NativeUnit("target");
         s.target.kind = H.Call("AZS_UnitKind", "target");
     end
-    if exists==true then s.target.level=H.Number(H.Call("UnitLevel","target")); end
+    if exists==true then
+        s.target.level=H.Number(H.Call("UnitLevel","target"));
+        s.target.power,s.target.powerMax=H.Pair(H.Call("UnitMana","target"),H.Call("UnitManaMax","target"));
+        s.target.powerType=H.Call("UnitPowerType","target");
+    end
     return s;
 end

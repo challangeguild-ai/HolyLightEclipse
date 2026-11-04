@@ -1,6 +1,7 @@
 local H=HLE;
 local MEDIA="Interface\\AddOns\\HolyLightEclipse\\Media\\";
 local age=0;
+local eliteEpoch,eliteHeld=nil,{};
 local function Read(name)
     local fn=getglobal(name); if type(fn)~="function" then return nil; end
     local ok,value=pcall(fn); if ok then return value; end
@@ -104,6 +105,11 @@ function H.BuildExtras(Text,Texture,Panel)
     for i=1,6 do
         local row={}; row.name=Text(H.navigation,13,12,-32-(i-1)*48,216,{1,0.94,0.82});
         row.name:SetHeight(30);
+        row.skull=Texture(H.navigation,MEDIA.."TimelineSkull.tga",204,-56-(i-1)*48,20,20,"ARTWORK"); row.skull:Hide();
+        row.hp=CreateFrame("StatusBar",nil,H.navigation); row.hp:SetWidth(216); row.hp:SetHeight(17);
+        row.hp:SetPoint("TOPLEFT",H.navigation,"TOPLEFT",12,-57-(i-1)*48); row.hp:SetStatusBarTexture(MEDIA.."White.tga");
+        row.hp:SetStatusBarColor(0.66,0.26,0.78); row.hp:SetMinMaxValues(0,1);
+        row.hpLabel=Text(row.hp,11,4,0,208,{1,0.96,0.86}); row.hp:Hide();
         row.status=Text(H.navigation,12,12,-59-(i-1)*48,216,{0.76,0.65,0.95}); H.eliteRows[i]=row;
     end
     H.elitePrev=Click(H.navigation,Text,Texture,12,-325,100,"< PAGE",function() H.elitePage=math.max(0,(H.elitePage or 0)-1); H.UpdateExtras(H.Read(),1); end);
@@ -130,35 +136,35 @@ function H.BuildExtras(Text,Texture,Panel)
     Click(H.jewelry,Text,Texture,10,-239,72,"RUN/SEEN",function() H.journalHistory=not H.journalHistory; H.journalPage=0; H.UpdateExtras(H.Read(),1); end);
     Click(H.jewelry,Text,Texture,87,-239,72,"< PAGE",function() H.journalPage=math.max(0,(H.journalPage or 0)-1); H.UpdateExtras(H.Read(),1); end);
     Click(H.jewelry,Text,Texture,164,-239,86,"PAGE >",function() H.journalPage=(H.journalPage or 0)+1; H.UpdateExtras(H.Read(),1); end);
-    H.settings=CreateFrame("Frame","HLESettings",UIParent); H.settings:SetWidth(340); H.settings:SetHeight(365); H.settings:SetFrameStrata("DIALOG");
+    H.settings=CreateFrame("Frame","HLESettings",UIParent); H.settings:SetWidth(340); H.settings:SetHeight(446); H.settings:SetFrameStrata("DIALOG");
     H.settings:SetPoint("CENTER",UIParent,"CENTER",0,0); H.settings:SetMovable(true); H.settings:EnableMouse(true); H.settings:RegisterForDrag("LeftButton");
     H.settings:SetScript("OnDragStart",function() this:StartMoving(); end); H.settings:SetScript("OnDragStop",function() this:StopMovingOrSizing(); end);
-    local sbg=Texture(H.settings,MEDIA.."White.tga",0,0,340,365); sbg:SetVertexColor(0.045,0.025,0.065,0.98);
+    local sbg=Texture(H.settings,MEDIA.."White.tga",0,0,340,446); sbg:SetVertexColor(0.045,0.025,0.065,0.98);
     Text(H.settings,15,15,-12,300,{0.95,0.74,0.35}):SetText("HUD SETTINGS");
     H.settingButtons={};
     local controls={{"showMeter","Damage meter","meter"},{"showGear","Equipment","gear"},{"showLoot","Loot notices","loot"},
-        {"nameplates","Nameplates","plates"},{"showEffects","Buffs / timers","effects"},{"showNavigation","Elite / guardian list","navigation"},{"showJournal","Jewelry / diary","journal"}};
+        {"nameplates","Nameplates","plates"},{"showEffects","Buffs / timers","effects"},{"showNavigation","Elite / guardian list","navigation"},{"showJournal","Jewelry / diary","journal"},{"showParty","Party frames","party"},{"showTimeline","Boss timeline","timeline"},{"skinMinimap","Minimap skin","minimap"}};
     for i=1,table.getn(controls) do
         local spec=controls[i]; local command=spec[3];
         local button=Click(H.settings,Text,Texture,15,-40-(i-1)*27,310,spec[2],function() SlashCmdList.HOLYLIGHTECLIPSE(command); H.RefreshSettings(); end);
         button.key,button.title=spec[1],spec[2]; H.settingButtons[i]=button;
     end
-    Click(H.settings,Text,Texture,15,-233,95,"MOVE / LOCK",function() SlashCmdList.HOLYLIGHTECLIPSE(H.unlocked and "lock" or "unlock"); end);
-    Click(H.settings,Text,Texture,120,-233,95,"SCALE -",function() HLE_DB.scale=math.max(0.6,HLE_DB.scale-0.05); H.ApplyLayout(); end);
-    Click(H.settings,Text,Texture,225,-233,100,"SCALE +",function() HLE_DB.scale=math.min(1.4,HLE_DB.scale+0.05); H.ApplyLayout(); end);
+    Click(H.settings,Text,Texture,15,-314,95,"MOVE / LOCK",function() SlashCmdList.HOLYLIGHTECLIPSE(H.unlocked and "lock" or "unlock"); end);
+    Click(H.settings,Text,Texture,120,-314,95,"SCALE -",function() HLE_DB.scale=math.max(0.6,HLE_DB.scale-0.05); H.ApplyLayout(); end);
+    Click(H.settings,Text,Texture,225,-314,100,"SCALE +",function() HLE_DB.scale=math.min(1.4,HLE_DB.scale+0.05); H.ApplyLayout(); end);
     for i=1,3 do local slot=i;
-        Click(H.settings,Text,Texture,15+(i-1)*105,-266,100,"SAVE "..i,function() H.Profile("save",slot); end);
-        Click(H.settings,Text,Texture,15+(i-1)*105,-293,100,"LOAD "..i,function() H.Profile("load",slot); end);
+        Click(H.settings,Text,Texture,15+(i-1)*105,-347,100,"SAVE "..i,function() H.Profile("save",slot); end);
+        Click(H.settings,Text,Texture,15+(i-1)*105,-374,100,"LOAD "..i,function() H.Profile("load",slot); end);
     end
-    H.settingsStatus=Text(H.settings,9,15,-326,220,{0.8,0.7,0.9}); H.settingsStatus:SetText("Profiles store layout and settings only.");
-    Click(H.settings,Text,Texture,245,-331,80,"CLOSE",function() H.settings:Hide(); end);
+    H.settingsStatus=Text(H.settings,9,15,-407,220,{0.8,0.7,0.9}); H.settingsStatus:SetText("Profiles store layout and settings only.");
+    Click(H.settings,Text,Texture,245,-412,80,"CLOSE",function() H.settings:Hide(); end);
     H.settings:Hide();
 end
 function H.RefreshSettings()
     for i=1,table.getn(H.settingButtons) do local b=H.settingButtons[i]; b.label:SetText((HLE_DB[b.key] and "[ON] " or "[OFF] ")..b.title); end
 end
-local preferenceKeys={"scale","plateScale","showMeter","showGear","showLoot","nameplates","showEffects","showNavigation","showJournal","replaceNative","meterMode"};
-local positions={"main","top","meter","gear","loot","effects","navigation","jewelry"};
+local preferenceKeys={"scale","plateScale","showMeter","showGear","showLoot","nameplates","showEffects","showNavigation","showJournal","replaceNative","meterMode","showParty","showTimeline","skinMinimap"};
+local positions={"main","top","meter","gear","loot","effects","navigation","jewelry","party"};
 function H.Profile(mode,index)
     if index~=1 and index~=2 and index~=3 then return false; end
     HLE_DB.profiles=H.Table(HLE_DB.profiles);
@@ -197,11 +203,14 @@ function H.UpdateEliteWindow(s)
             type(p.runId)=="string" and type(p.spaceId)=="string" and H.Number(p.mapId) and
             v.runId==p.runId and v.spaceId==p.spaceId and v.mapId==p.mapId then table.insert(list,v); end
     end
+    local epoch=type(p)=="table" and (H.Text(p.runId,"")..":"..H.Text(p.spaceId,"")) or "";
+    if epoch~=eliteEpoch then eliteEpoch=epoch; eliteHeld={}; end
     local count=table.getn(list); local pages=math.max(1,math.ceil(count/6));
     H.elitePage=math.min(pages-1,H.elitePage or 0);
     H.navigationText:SetText("ELITES / GUARDIANS"..(pages>1 and (" "..(H.elitePage+1).."/"..pages) or ""));
     for i=1,6 do
         local row=H.eliteRows[i]; local v=list[H.elitePage*6+i];
+        row.hp:Hide(); row.skull:Hide();
         if v then
             row.name:SetText(v.name); row.name:Show(); row.status:Show();
             local status="State unavailable"; local color={0.76,0.65,0.95};
@@ -212,6 +221,18 @@ function H.UpdateEliteWindow(s)
                 if stamp and now and now-stamp>5 then status="Respawn: waiting for update";
                 elseif left and left>=0 then status=left>0 and ("Respawn: "..H.Clock(math.ceil(left))) or "Respawn due";
                 else status="Respawn: unavailable"; end
+            end
+            local lairKey=tostring(v.index or (H.elitePage*6+i));
+            if v.state=="empty" and eliteHeld[lairKey] then row.skull:Show(); end
+            if v.state=="asleep" or v.state=="awake" then eliteHeld[lairKey]=true; end
+            if v.state=="asleep" or v.state=="awake" then
+                local guardian;
+                for j=1,table.getn(s.guardians) do local g=H.Table(s.guardians[j]); if H.Number(v.id) and v.id>0 and g.id==v.id then guardian=g; break; end end
+                local hp,maximum=H.Pair(guardian and guardian.hp,guardian and guardian.hpm);
+                if hp and hp>0 and not s.playerDead and not H.lifeDead then
+                    row.hp:SetValue(math.min(1,hp/maximum)); row.hpLabel:SetText(H.Short(hp).." / "..H.Short(maximum));
+                    row.hp:Show(); row.status:Hide();
+                end
             end
             row.status:SetText(status); row.status:SetTextColor(unpack(color));
         else row.name:Hide(); row.status:Hide(); row.name:SetText(""); row.status:SetText(""); end

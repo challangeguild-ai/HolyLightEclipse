@@ -72,9 +72,9 @@ local function Card(parent,Text,Texture,size)
 end
 function H.BuildTracking(Text,Texture,Panel)
     H.targetAuraCards={};
-    for i=1,9 do
-        H.targetAuraCards[i]=Card(H.targetRoot,Text,Texture,22);
-        H.targetAuraCards[i]:SetPoint("TOPLEFT",H.targetRoot,"TOPLEFT",82+(i-1)*25,30);
+    for i=1,24 do
+        H.targetAuraCards[i]=Card(H.targetRoot,Text,Texture,30);
+        H.targetAuraCards[i]:SetPoint("TOPLEFT",H.targetRoot,"TOPLEFT",14+math.mod(i-1,7)*32,38+math.floor((i-1)/7)*32);
     end
     H.bossAuraCards={};
     for i=1,3 do
@@ -114,14 +114,14 @@ function H.RenderTargetAuras(s)
         for kind=1,2 do
             local fn=getglobal(names[kind]);
             if type(fn)=="function" then
-                for i=1,(kind==1 and 4 or 5) do
+                for i=1,16 do
                     local ok,path,count=pcall(fn,"target",i);
                     if ok and H.IconPath(path) then table.insert(list,{icon=path,stacks=count,name=kind==1 and "Buff" or "Debuff",unitIndex=i,harmful=kind==2}); end
                 end
             end
         end
     end
-    for i=1,9 do
+    for i=1,24 do
         local c=H.targetAuraCards[i];
         if list[i] then Paint(c,list[i]); c.time:SetText("");
         else c:Hide(); c.info=nil; HideTooltip(c); end
