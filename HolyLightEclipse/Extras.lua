@@ -163,7 +163,7 @@ end
 function H.RefreshSettings()
     for i=1,table.getn(H.settingButtons) do local b=H.settingButtons[i]; b.label:SetText((HLE_DB[b.key] and "[ON] " or "[OFF] ")..b.title); end
 end
-local preferenceKeys={"scale","plateScale","showMeter","showGear","showLoot","nameplates","showEffects","showNavigation","showJournal","replaceNative","meterMode","showParty","showTimeline","skinMinimap","rescueArrow"};
+local preferenceKeys={"scale","plateScale","showMeter","showGear","showLoot","nameplates","showEffects","showNavigation","showJournal","replaceNative","meterMode","meterScope","showParty","showTimeline","skinMinimap","rescueArrow"};
 local positions={"main","top","meter","gear","loot","effects","navigation","jewelry","party"};
 function H.Profile(mode,index)
     if index~=1 and index~=2 and index~=3 then return false; end
@@ -178,14 +178,15 @@ function H.Profile(mode,index)
             if type(v)=="boolean" and key~="scale" and key~="plateScale" and key~="meterMode" then HLE_DB[key]=v;
             elseif key=="scale" and H.Number(v) then HLE_DB.scale=math.max(0.6,math.min(1.4,v));
             elseif key=="plateScale" and H.Number(v) then HLE_DB.plateScale=math.max(0.6,math.min(1.8,v));
-            elseif key=="meterMode" and (v=="run" or v=="boss" or v=="heal") then HLE_DB[key]=v; end
+            elseif key=="meterMode" and (v=="run" or v=="boss" or v=="heal") then HLE_DB[key]=v;
+            elseif key=="meterScope" and (v=="self" or v=="party") then HLE_DB[key]=v; end
         end
         for i=1,table.getn(positions) do local key=positions[i]; local v=H.Table(p[key]); HLE_DB[key]=nil;
             if H.Number(v.x) and H.Number(v.y) then HLE_DB[key]={x=v.x,y=v.y}; end
         end
         if not HLE_DB.nameplates then H.RestoreNameplates(); end
         if not HLE_DB.replaceNative then H.RestoreNative(); end
-        H.ApplyLayout(); H.RefreshSettings(); H.settingsStatus:SetText("Loaded profile "..index); return true;
+        H.meterPage=0; H.ResetMeterCache(); H.ApplyLayout(); H.RefreshSettings(); H.settingsStatus:SetText("Loaded profile "..index); return true;
     end
     H.settingsStatus:SetText("Profile "..index.." is empty"); return false;
 end
