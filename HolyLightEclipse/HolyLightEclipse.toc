@@ -16,6 +16,7 @@ Native.lua
 Tracking.lua
 Extras.lua
 GroupMap.lua
+PartyRescue.lua
 Timeline.lua
 CombatText.lua
 View.lua
