@@ -294,23 +294,26 @@ function H.Render(s)
     if table.getn(encounters)>3 then H.nextBoss:SetText("+"..(table.getn(encounters)-3).." active bosses"); end
     local meter=H.ReadMeter(s);
     H.meterTitle:SetText(meter.title.."   "..H.Short(meter.rate)..(meter.healing and " HPS" or " DPS"));
-    H.meterStats:SetText(s.active and ((meter.healing and "HEAL " or "DMG ")..H.Short(meter.total).."   EN "..H.Short(s.enemies)) or "");
+    local summary=(meter.healing and "HEAL " or "DMG ")..H.Short(meter.total);
+    if meter.scope~="party" then summary=summary.."   EN "..H.Short(s.enemies); end
+    H.meterStats:SetText(s.active and (meter.unavailable and "DATA UNAVAILABLE" or summary) or "");
     local lines=H.Table(meter.lines); local first=H.Number(H.Table(lines[1]).dmg);
-    local rows=HLE_DB.meterRows or 8; local w=HLE_DB.meterWidth or 280; local height=96+rows*20;
+    local rows=HLE_DB.meterRows or 8; local w=HLE_DB.meterWidth or 280; local height=132+rows*20;
     H.meter:SetWidth(w); H.meter:SetHeight(height); H.meterArt:SetWidth(w); H.meterArt:SetHeight(height);
     H.meterTitle:SetWidth(w-26); H.meterStats:SetWidth(w-26);
     H.meterStats:ClearAllPoints(); H.meterStats:SetPoint("TOPLEFT",H.meter,"TOPLEFT",13,-40-rows*20);
     H.meterHint:ClearAllPoints(); H.meterHint:SetPoint("TOPLEFT",H.meter,"TOPLEFT",13,-height+17);
     local pages=math.max(1,math.ceil(table.getn(lines)/rows)); H.meterPage=math.min(pages-1,H.meterPage or 0);
     H.meterHint:SetText(pages>1 and ("PAGE "..(H.meterPage+1).."/"..pages) or "");
-    for i=1,3 do local tab=H.meterTabs[i]; tab:ClearAllPoints(); tab:SetPoint("TOPLEFT",H.meter,"TOPLEFT",13+(i-1)*67,-height+40); end
+    for i=1,2 do local tab=H.meterScopeTabs[i]; tab:ClearAllPoints(); tab:SetPoint("TOPLEFT",H.meter,"TOPLEFT",13+(i-1)*78,-height+68); end
+    for i=1,3 do local tab=H.meterTabs[i]; tab:ClearAllPoints(); tab:SetPoint("TOPLEFT",H.meter,"TOPLEFT",13+(i-1)*67,-height+42); end
     for i=1,4 do local c=H.meterControls[i]; c:ClearAllPoints(); c:SetPoint("TOPLEFT",H.meter,"TOPLEFT",w-96+(i-1)*22,-height+21); end
     for i=1,16 do
         local bar=H.meterRows[i]; local line=H.Table(lines[H.meterPage*rows+i]); local dmg=H.Number(line.dmg);
         if i<=rows then
             bar:Show(); bar:SetWidth(w-26); bar.background:SetWidth(w-26); bar.label:SetWidth(w-36);
             bar:SetValue(dmg and first and first>0 and math.max(0,math.min(1,dmg/first)) or 0);
-            local name=H.Text(line.name,i==1 and (meter.unavailable and "API unavailable" or "No data yet") or "");
+            local name=H.Text(line.name,i==1 and (meter.unavailable and H.Text(meter.reason,"API unavailable") or "No data yet") or "");
             bar.label:SetText(name..(dmg and ("  "..H.Short(dmg)) or ""));
         else bar:Hide(); end
     end
@@ -354,7 +357,10 @@ local function Command(msg)
     elseif string.find(msg,"^meter width %d+$") then HLE_DB.meterWidth=math.max(230,math.min(480,tonumber(string.sub(msg,13)) or 280)); H.Render(H.Read());
     elseif msg=="damage" then HLE_DB.customDamage=not HLE_DB.customDamage; H.UpdateCombatText(H.Read());
     elseif msg=="healing" then HLE_DB.incomingHealing=not HLE_DB.incomingHealing; H.UpdateCombatText(H.Read());
-    elseif msg=="meter run" or msg=="meter boss" or msg=="meter heal" then HLE_DB.meterMode=string.sub(msg,7); H.Render(H.Read());
+    elseif msg=="meter run" or msg=="meter boss" or msg=="meter heal" then
+        HLE_DB.meterMode=string.sub(msg,7); H.meterPage=0; H.ResetMeterCache(); H.Render(H.Read());
+    elseif msg=="meter self" or msg=="meter party" then
+        HLE_DB.meterScope=string.sub(msg,7); H.meterPage=0; H.ResetMeterCache(); H.Render(H.Read());
     elseif msg=="effects" then HLE_DB.showEffects=not HLE_DB.showEffects; H.UpdateTracking(H.Read());
     elseif msg=="party" then HLE_DB.showParty=not HLE_DB.showParty; H.UpdateParty(H.Read());
     elseif msg=="rescue" then
@@ -405,7 +411,7 @@ local function Command(msg)
         local names={"AZS_GetPhase","AZS_GetMeter","AZS_SetHudShown","GetActionTexture","GetActionCooldown"};
         for i=1,table.getn(names) do Print(names[i]..": "..type(getglobal(names[i]))); end
         for name,err in pairs(H.errors) do Print(name..": "..err); end
-    else Print("/hle rescue | damage | healing | meter rows 10 | meter width 320 | on | off | native | meter | meter run | meter boss | meter heal | effects | gear | loot | loot clear | plates | plates 1.2 | unlock | lock | reset | scale 0.8 | levels | status"); end
+    else Print("/hle rescue | damage | healing | meter self | meter party | meter rows 10 | meter width 320 | on | off | native | meter | meter run | meter boss | meter heal | effects | gear | loot | loot clear | plates | plates 1.2 | unlock | lock | reset | scale 0.8 | levels | status"); end
 end
 local function Initialize()
     if ready then return; end
@@ -426,6 +432,7 @@ local function Initialize()
     if HLE_DB.showNavigation==nil then HLE_DB.showNavigation=true; end
     if HLE_DB.showJournal==nil then HLE_DB.showJournal=false; end
     if HLE_DB.meterMode~="boss" and HLE_DB.meterMode~="heal" then HLE_DB.meterMode="run"; end
+    if HLE_DB.meterScope~="party" then HLE_DB.meterScope="self"; end
     if HLE_DB.nameplates==nil then HLE_DB.nameplates=true; end
     local plateScale=H.Number(HLE_DB.plateScale); HLE_DB.plateScale=plateScale and math.max(0.6,math.min(1.8,plateScale)) or 1;
     local n=H.Number(HLE_DB.scale); HLE_DB.scale=n and math.max(0.6,math.min(1.4,n)) or 0.85;
@@ -461,12 +468,12 @@ function HLE_OnEvent(evt,name)
         if ready then H.RestoreNative(); H.suspended=true; end
     elseif evt=="CHAT_MSG_ADDON" then
         H.TrackingEvent(name);
-        if name=="AZSZONE" then H.StartSkillRun("AZSZONE"); H.lifeDead=false; H.deathExplicit=false; H.ResetEncounters("AZSZONE"); H.ClearLoot(); H.ResetTracking(); H.ResetTimeline(); H.ResetRescue();
+        if name=="AZSZONE" then H.StartSkillRun("AZSZONE"); H.lifeDead=false; H.deathExplicit=false; H.ResetEncounters("AZSZONE"); H.ClearLoot(); H.ResetTracking(); H.ResetMeterCache(); H.ResetTimeline(); H.ResetRescue();
         elseif name=="AZSBOSSES" then H.TimelineUpdated();
         elseif name=="AZSSPELLS" then H.SpellsUpdated();
         elseif name=="AZSUNITS" then H.EncounterUnitsUpdated(); end
     elseif evt=="ADDON_LOADED" and name=="HolyLightEclipse" or evt=="PLAYER_LOGIN" or evt=="PLAYER_ENTERING_WORLD" then
-        if evt=="PLAYER_ENTERING_WORLD" then H.suspended=false; H.EnterSkillWorld(); H.lifeDead=false; H.deathExplicit=false; H.ResetEncounters("world-enter"); H.ResetTimeline(); H.ResetRescue(); end
+        if evt=="PLAYER_ENTERING_WORLD" then H.suspended=false; H.EnterSkillWorld(); H.lifeDead=false; H.deathExplicit=false; H.ResetEncounters("world-enter"); H.ResetMeterCache(); H.ResetTimeline(); H.ResetRescue(); end
         Initialize();
     end
 end
