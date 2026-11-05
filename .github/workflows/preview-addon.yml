@@ -16,6 +16,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Check Lua syntax and meter behavior
+        shell: bash
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq lua5.1
+          find HolyLightEclipse -name '*.lua' -type f -print0 | xargs -0 -n 1 luac5.1 -p
+          (cd HolyLightEclipse && lua5.1 Tests/meter_scope.lua)
       - name: Build installable folder ZIP
         shell: bash
         run: |
