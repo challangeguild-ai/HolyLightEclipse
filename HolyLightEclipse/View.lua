@@ -178,7 +178,7 @@ local function Build()
     H.BuildTracking(Text,Texture,Panel);
     H.gear=Panel("HLEEquipment","gear",240,136,"LEFT",-35,24); H.BuildEquipment(H.gear);
     H.BuildExtras(Text,Texture,Panel);
-    H.BuildGroupMap(Text,Texture,Bar,Panel); H.BuildBossLoot(Text,Texture); H.BuildTimeline(Text,Texture);
+    H.BuildGroupMap(Text,Texture,Bar,Panel); H.BuildRescue(); H.BuildBossLoot(Text,Texture); H.BuildTimeline(Text,Texture);
     H.loot=Panel("HLELoot","loot",300,216,"TOP",-295,0); H.BuildLoot(H.loot);
 end
 function H.ClearSkillVisuals()
@@ -318,6 +318,8 @@ function H.Render(s)
     if not combatOK then H.errors.CombatText=tostring(combatError); HLE_DB.customDamage=false; HLE_DB.incomingHealing=false; H.StopCombatText(); end
     local partyOK,partyError=pcall(H.UpdateParty,s);
     if not partyOK then HLE_DB.showParty=false; H.RestoreParty(); H.errors.Party=tostring(partyError); end
+    local rescueOK,rescueError=pcall(H.UpdateRescue,s);
+    if not rescueOK then HLE_DB.rescueArrow=false; H.ResetRescue(); H.errors.Rescue=tostring(rescueError); end
     local mapOK,mapError=pcall(H.UpdateMinimap);
     if not mapOK then HLE_DB.skinMinimap=false; H.RestoreMinimap(); H.errors.Minimap=tostring(mapError); end
     local bossLootOK,bossLootError=pcall(H.UpdateBossLoot,s,0.05);
@@ -333,7 +335,7 @@ local function Visibility()
     end
     if not HLE_DB.showGear or not HLE_DB.enabled then H.ClearEquipment(); end
     if not HLE_DB.showLoot or not HLE_DB.enabled then H.ClearLoot(); end
-    if not HLE_DB.enabled then H.HideBossLoot(); H.RestoreChat(); H.StopCombatText(); H.RestoreNative(); H.RestoreNameplates(); H.ResetTracking(); H.effects:Hide(); H.ClearExtras(); H.RestoreParty(); H.RestoreMinimap(); H.RestoreLegacyBuffs(); end
+    if not HLE_DB.enabled then H.HideBossLoot(); H.RestoreChat(); H.StopCombatText(); H.RestoreNative(); H.RestoreNameplates(); H.ResetTracking(); H.effects:Hide(); H.ClearExtras(); H.RestoreParty(); H.ResetRescue(); H.RestoreMinimap(); H.RestoreLegacyBuffs(); end
 end
 function H.ApplyLayout()
     for i=1,table.getn(panels) do Position(panels[i]); end
@@ -355,6 +357,9 @@ local function Command(msg)
     elseif msg=="meter run" or msg=="meter boss" or msg=="meter heal" then HLE_DB.meterMode=string.sub(msg,7); H.Render(H.Read());
     elseif msg=="effects" then HLE_DB.showEffects=not HLE_DB.showEffects; H.UpdateTracking(H.Read());
     elseif msg=="party" then HLE_DB.showParty=not HLE_DB.showParty; H.UpdateParty(H.Read());
+    elseif msg=="rescue" then
+        HLE_DB.rescueArrow=not HLE_DB.rescueArrow;
+        if HLE_DB.rescueArrow then H.UpdateRescue(H.Read()); else H.ResetRescue(); end
     elseif msg=="timeline" then HLE_DB.showTimeline=not HLE_DB.showTimeline; H.Render(H.Read());
     elseif msg=="minimap" then HLE_DB.skinMinimap=not HLE_DB.skinMinimap; H.UpdateMinimap();
     elseif msg=="navigation" then HLE_DB.showNavigation=not HLE_DB.showNavigation; H.UpdateExtras(H.Read(),1);
@@ -400,7 +405,7 @@ local function Command(msg)
         local names={"AZS_GetPhase","AZS_GetMeter","AZS_SetHudShown","GetActionTexture","GetActionCooldown"};
         for i=1,table.getn(names) do Print(names[i]..": "..type(getglobal(names[i]))); end
         for name,err in pairs(H.errors) do Print(name..": "..err); end
-    else Print("/hle damage | healing | meter rows 10 | meter width 320 | on | off | native | meter | meter run | meter boss | meter heal | effects | gear | loot | loot clear | plates | plates 1.2 | unlock | lock | reset | scale 0.8 | levels | status"); end
+    else Print("/hle rescue | damage | healing | meter rows 10 | meter width 320 | on | off | native | meter | meter run | meter boss | meter heal | effects | gear | loot | loot clear | plates | plates 1.2 | unlock | lock | reset | scale 0.8 | levels | status"); end
 end
 local function Initialize()
     if ready then return; end
@@ -414,6 +419,7 @@ local function Initialize()
     if HLE_DB.showGear==nil then HLE_DB.showGear=true; end
     if HLE_DB.showLoot==nil then HLE_DB.showLoot=true; end
     if HLE_DB.showParty==nil then HLE_DB.showParty=true; end
+    if HLE_DB.rescueArrow==nil then HLE_DB.rescueArrow=true; end
     if HLE_DB.showTimeline==nil then HLE_DB.showTimeline=true; end
     if HLE_DB.skinMinimap==nil then HLE_DB.skinMinimap=true; end
     if HLE_DB.showEffects==nil then HLE_DB.showEffects=true; end
@@ -450,17 +456,17 @@ function HLE_OnEvent(evt,name)
     elseif evt=="PLAYER_LOGOUT" or evt=="PLAYER_LEAVING_WORLD" then
         H.RestoreChat(); H.StopCombatText();
         H.RestoreNameplates(); H.ClearEquipment();
-        H.ClearLoot(); H.ResetEncounters("world-leave"); H.ResetTracking(); H.ClearExtras(); H.RestoreParty(); H.RestoreMinimap(); H.RestoreLegacyBuffs(); H.ResetTimeline(); if H.effects then H.effects:Hide(); end
+        H.ClearLoot(); H.ResetEncounters("world-leave"); H.ResetTracking(); H.ClearExtras(); H.RestoreParty(); H.ResetRescue(); H.RestoreMinimap(); H.RestoreLegacyBuffs(); H.ResetTimeline(); if H.effects then H.effects:Hide(); end
         H.LeaveSkillWorld();
         if ready then H.RestoreNative(); H.suspended=true; end
     elseif evt=="CHAT_MSG_ADDON" then
         H.TrackingEvent(name);
-        if name=="AZSZONE" then H.StartSkillRun("AZSZONE"); H.lifeDead=false; H.deathExplicit=false; H.ResetEncounters("AZSZONE"); H.ClearLoot(); H.ResetTracking(); H.ResetTimeline();
+        if name=="AZSZONE" then H.StartSkillRun("AZSZONE"); H.lifeDead=false; H.deathExplicit=false; H.ResetEncounters("AZSZONE"); H.ClearLoot(); H.ResetTracking(); H.ResetTimeline(); H.ResetRescue();
         elseif name=="AZSBOSSES" then H.TimelineUpdated();
         elseif name=="AZSSPELLS" then H.SpellsUpdated();
         elseif name=="AZSUNITS" then H.EncounterUnitsUpdated(); end
     elseif evt=="ADDON_LOADED" and name=="HolyLightEclipse" or evt=="PLAYER_LOGIN" or evt=="PLAYER_ENTERING_WORLD" then
-        if evt=="PLAYER_ENTERING_WORLD" then H.suspended=false; H.EnterSkillWorld(); H.lifeDead=false; H.deathExplicit=false; H.ResetEncounters("world-enter"); H.ResetTimeline(); end
+        if evt=="PLAYER_ENTERING_WORLD" then H.suspended=false; H.EnterSkillWorld(); H.lifeDead=false; H.deathExplicit=false; H.ResetEncounters("world-enter"); H.ResetTimeline(); H.ResetRescue(); end
         Initialize();
     end
 end
