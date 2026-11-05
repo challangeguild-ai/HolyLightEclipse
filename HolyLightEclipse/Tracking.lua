@@ -8,17 +8,100 @@ local function Read(name)
     if ok then return a,b,c; end
     H.errors[name]=tostring(a); return nil;
 end
+-- Source/party views share a single meter and use the official v1 ledger when ready.
+-- The vanilla name-based meters remain usable on older Survivors clients.
+local meterCache;
+function H.ResetMeterCache() meterCache=nil; end
+local function LegacyMeter(s,scope,mode)
+    local result={scope=scope,mode=mode,lines={},healing=mode=="heal",source="legacy"};
+    if scope=="party" then
+        if mode~="run" then
+            result.unavailable=true; result.reason="Detailed party meter unavailable";
+            return result;
+        end
+        local lines,total,rate=Read("AZS_GetPartyMeter");
+        if type(lines)~="table" then
+            result.unavailable=true; result.reason="Party meter API unavailable";
+        else
+            result.lines=lines; result.total=H.Number(total); result.rate=H.Number(rate);
+            if table.getn(lines)==0 and (H.Number(H.Call("GetNumPartyMembers")) or 0)<1 then
+                result.unavailable=true; result.reason="No co-op party";
+            end
+        end
+    elseif mode=="run" then
+        result.lines=H.Table(s.meter); result.total=H.Number(s.damage); result.rate=H.Number(s.dps);
+    else
+        local getter=mode=="heal" and "AZS_GetHealing" or "AZS_GetBossMeter";
+        local lines,total,rate=Read(getter);
+        result.lines=H.Table(lines); result.total=H.Number(total); result.rate=H.Number(rate);
+        if type(lines)~="table" then result.unavailable=true; result.reason="Meter API unavailable"; end
+    end
+    return result;
+end
+local function SnapshotMeter(scope,mode)
+    if type(AZS_GetMeterCapabilities)~="function" or type(AZS_GetMeterContext)~="function" or
+        type(AZS_GetMeterSnapshot)~="function" then return nil; end
+    local caps=H.Table(H.Call("AZS_GetMeterCapabilities"));
+    if caps.apiVersion~=1 then return nil; end
+    local context,ctxError=H.Call("AZS_GetMeterContext");
+    if type(context)~="table" or type(context.runId)~="string" or context.runId=="" then
+        return nil, H.Table(ctxError).code or "NOT_READY";
+    end
+    local query={apiVersion=1,runId=context.runId,
+        metric=mode=="heal" and "healing" or "damage",
+        scope=scope,period=mode=="boss" and "encounter" or "run",
+        groupBy=scope=="party" and "owner" or "source",windowSeconds=0};
+    if mode=="heal" then query.healingPerspective="performed"; end
+    local snapshot,err=H.Call("AZS_GetMeterSnapshot",query);
+    if type(snapshot)~="table" then return nil,H.Table(err).code or "NOT_READY"; end
+    if snapshot.apiVersion~=1 or snapshot.complete~=true or
+        (snapshot.status~="ready" and snapshot.status~="ready_empty") or
+        type(snapshot.context)~="table" or snapshot.context.runId~=context.runId or
+        type(snapshot.rows)~="table" or type(snapshot.totals)~="table" then
+        return nil,"NOT_READY";
+    end
+    local lines={};
+    local actors=H.Table(snapshot.actors); local sources=H.Table(snapshot.sources);
+    for i=1,math.min(128,table.getn(snapshot.rows)) do
+        local row=H.Table(snapshot.rows[i]);
+        local amount=H.Number(row.displayAmount);
+        if amount and amount>=0 then
+            local descriptor=scope=="party" and H.Table(actors[row.ownerId]) or H.Table(sources[row.sourceKey]);
+            local name=H.Text(descriptor.name,scope=="party" and ("Player "..i) or ("Source "..i));
+            local rate=H.Number(H.Table(row.displayRate).value);
+            table.insert(lines,{name=name,dmg=amount,dps=rate,share=H.Number(row.share)});
+        end
+    end
+    local totals=H.Table(snapshot.totals);
+    return {scope=scope,mode=mode,source="snapshot",lines=lines,
+        total=H.Number(totals.displayAmount),rate=H.Number(H.Table(totals.displayRate).value),
+        healing=mode=="heal"};
+end
 function H.ReadMeter(s)
     local mode=HLE_DB.meterMode or "run";
-    local result={title=mode=="heal" and "HEALING" or (mode=="boss" and "BOSS" or "DAMAGE"),healing=mode=="heal",lines={}};
-    if not s.active then return result; end
-    if mode=="run" then result.lines,result.total,result.rate=s.meter,s.damage,s.dps;
-    else
-        local name=mode=="heal" and "AZS_GetHealing" or "AZS_GetBossMeter";
-        local lines,total,rate=Read(name);
-        result.lines=H.Table(lines); result.total=H.Number(total); result.rate=H.Number(rate);
-        result.unavailable=type(lines)~="table";
+    local scope=HLE_DB.meterScope=="party" and "party" or "self";
+    local title=scope=="party" and (mode=="heal" and "PARTY HEALING" or (mode=="boss" and "PARTY BOSS" or "PARTY DAMAGE"))
+        or (mode=="heal" and "HEALING" or (mode=="boss" and "BOSS" or "DAMAGE"));
+    if not s.active then H.ResetMeterCache(); return {scope=scope,mode=mode,title=title,lines={},healing=mode=="heal"}; end
+    local now=H.Number(H.Call("GetTime"));
+    local epoch=H.Table(AZS_ZONE); local fingerprint=scope..":"..mode..":"..tostring(epoch.run)..":"..tostring(epoch.zone);
+    if meterCache and meterCache.key==fingerprint and now and meterCache.at and now>=meterCache.at and
+        now-meterCache.at<0.25 and (not H.Number(s.time) or not meterCache.runTime or s.time>=meterCache.runTime-1) then
+        return meterCache.result;
     end
+    local result,err=SnapshotMeter(scope,mode);
+    if not result then
+        result=LegacyMeter(s,scope,mode);
+        if scope=="party" and mode~="run" then
+            result.reason=(err=="NO_PARTY" and "No co-op party") or
+                (err=="NO_ENCOUNTER" and "No boss fight yet") or
+                (err=="NOT_READY" and "Waiting for party data") or result.reason;
+        elseif scope=="party" and mode=="run" and err=="NO_PARTY" then
+            result.unavailable=true; result.reason="No co-op party"; result.lines={}; result.total=nil; result.rate=nil;
+        end
+    end
+    result.title=title;
+    meterCache={key=fingerprint,at=now,runTime=H.Number(s.time),result=result};
     return result;
 end
 local function HideTooltip(card)
@@ -87,13 +170,26 @@ function H.BuildTracking(Text,Texture,Panel)
     H.effectsTitle=Text(H.effects,10,0,0,276,{0.95,0.74,0.35}); H.effectsTitle:SetText("BUFFS / SUMMONS"); H.effectsTitle:Hide();
     H.effectCards={};
     for i=1,24 do H.effectCards[i]=Card(H.effects,Text,Texture,30); end
+    H.meterScopeTabs={};
+    for i=1,2 do
+        local scope=i==1 and "self" or "party";
+        local tab=CreateFrame("Frame",nil,H.meter); tab:SetWidth(75); tab:SetHeight(18); tab:EnableMouse(true);
+        tab.label=Text(tab,10,0,0,75,{0.95,0.74,0.35}); tab.label:SetJustifyH("CENTER");
+        tab.label:SetText(scope=="self" and "SELF" or "PARTY"); tab.scope=scope;
+        tab:SetScript("OnMouseUp",function()
+            if arg1~="LeftButton" then return; end
+            HLE_DB.meterScope=this.scope; H.meterPage=0; H.ResetMeterCache(); H.Render(H.Read());
+        end);
+        H.meterScopeTabs[i]=tab;
+    end
     H.meterTabs={};
     local modes={"run","boss","heal"}; local labels={"RUN","BOSS","HEAL"};
     for i=1,3 do
         local tab=CreateFrame("Frame",nil,H.meter); tab:SetWidth(64); tab:SetHeight(17);
         tab:SetPoint("TOPLEFT",H.meter,"TOPLEFT",13+(i-1)*67,-135); tab:EnableMouse(true);
         tab.label=Text(tab,9,0,0,64,{0.95,0.74,0.35}); tab.label:SetText(labels[i]); tab.mode=modes[i];
-        tab:SetScript("OnMouseUp",function() if arg1=="LeftButton" then HLE_DB.meterMode=this.mode; H.Render(H.Read()); end end);
+        tab:SetScript("OnMouseUp",function() if arg1=="LeftButton" then
+            HLE_DB.meterMode=this.mode; H.meterPage=0; H.ResetMeterCache(); H.Render(H.Read()); end end);
         H.meterTabs[i]=tab;
     end
     H.ResetTracking();
@@ -146,6 +242,11 @@ function H.UpdateTracking(s)
     if (s.phase=="ready" and lastPhase~="ready") or (lastZone and zone~=lastZone) or
         (time and lastTime and time<lastTime-3) then H.ResetTracking(); end
     lastPhase,lastTime,lastZone=s.phase,time,zone;
+    for i=1,2 do
+        local tab=H.meterScopeTabs[i];
+        if tab.scope==(HLE_DB.meterScope or "self") then tab.label:SetTextColor(1,0.94,0.7);
+        else tab.label:SetTextColor(0.55,0.45,0.65); end
+    end
     for i=1,3 do
         local tab=H.meterTabs[i];
         if tab.mode==(HLE_DB.meterMode or "run") then tab.label:SetTextColor(1,0.94,0.7); else tab.label:SetTextColor(0.55,0.45,0.65); end
