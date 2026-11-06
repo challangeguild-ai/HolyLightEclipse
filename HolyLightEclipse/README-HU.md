@@ -242,3 +242,31 @@ A neveket minden frissítés az aktuális pálya AZS_GetLairs() listájából ol
 A kijelzett idő a játék által publikált érték (várakozáskor a dokumentáció szerint másodpercenként frissül), nem saját feltételezett respawn-periódus. Öt másodpercnél régebbi ismert publikációs bélyegnél frissítésre várást jelez; nem folytat hamis számlálást. A halál önmagában nem indít saját órát, a játék lair-state frissítése szükséges. A panel halott játékos mellett is olvasható, amíg a run aktív.
 
 Fontos API-korlát: ez a respawnhellyel rendelkező guardian/elit lista. A kliens nem ad ezzel egy általános felsorolást minden szabadon kóborló elit mobról, sem azok ismeretlen respawnidejéről. Ilyen adatot az addon nem talál ki. A kapcsoló továbbra is /hle navigation, a beállításokban Elite / guardian list néven szerepel. A buff/debuff és Action bar változatlan.
+
+## 0.9.7-preview – teljes co-op és általános HUD csomag (tesztverzió)
+
+Ez a verzió **nem stabil kiadás**: a WoW 1.12.1 / Azeroth Survivors kliensben élő tesztet igényel. A korábbi arany–lila HUD megmaradt; a táska natív működését az addon nem módosítja.
+
+- **SELF / PARTY**, valamint **RUN / BOSS / HEAL** váltók egyetlen DPS meterben. A modern API tényleges source/owner bontását olvassa; a régi API-nak vannak dokumentált korlátai.
+- **Co-op mentési irány**: csak elesett társ esetén jelzés és – megbízható pozíció/adat esetén – irányjelző nyíl. A felélesztés után eltűnik. Kapcsoló: `/hle rescue`.
+- **Sebzésszámok**: normál találat fehér, kritikus találat sárga.
+- **Bag skin**: sötétlila, aranyszegélyes eredeti táskakeret, ritkaságjelzés a tárgyhelyeken. A natív tárgykezelés, drag/drop és tooltip érintetlen. Kapcsoló: `/hle bag`.
+- **Bossjelzés**: a játék valódi boss/finalboss banner eseményére egy egyszeri rövid figyelmeztetés. Kapcsoló: `/hle bossalerts`.
+- **Futam végi összesítő**: a játék saját `AZS_GetRunSummary()` adatainak megjelenítése; halál, győzelem és önkéntes kilépés után is. Kapcsoló: `/hle summary`; a bezárt ablak ismételt megnyitása: `/hle summary show`.
+- **Skill READY-jelzés**: a képességlapon rövid visszajelzés, ha a játék által adott cooldown pozitívról nullára fut. Kapcsoló: `/hle skills`.
+- **Profilok**: az új kapcsolók menthetők és visszatölthetők.
+
+### Biztonságos telepítés
+
+Zárd be a játékot; készíts másolatot az `Interface/AddOns/HolyLightEclipse` mappáról. A ZIP `HolyLightEclipse` mappájával helyettesítsd az előzőt; a `WTF` mappát és mentett beállításokat ne töröld. A régi stabil ZIP visszamásolásával bármikor visszaállhatsz.
+
+### Első ellenőrzés
+
+1. Játékindítás, `/hle status`: nincs-e új Lua/API hiba.
+2. Táska nyit/zár, tárgymozgatás; a felület továbbra is működjön.
+3. SELF/RUN és PARTY/RUN, majd BOSS és HEAL váltók, boss alatt és gyógyításnál.
+4. Bossfigyelmeztetés és skill READY-jelzés; ne villogjanak folyamatosan.
+5. Co-op elesés/felélesztés és nyíl; ne maradjon meg újraélesztés után.
+6. Halál/győzelem/kilépés utáni összesítő; bezárás és újranyitás.
+
+A fenti funkciók kliensoldali működése még nem volt tényleges játékon belül ellenőrizhető.
