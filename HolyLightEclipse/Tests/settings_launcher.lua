@@ -64,6 +64,15 @@ HLE.BuildSettingsUI()
 assert(HLE.settings and not HLE.settings:IsShown(),"Settings should be closed initially")
 assert(HLE.settings:GetHeight()==420,"Advanced options should not cover screen initially")
 HLE.ToggleSettings();assert(HLE.settings:IsShown(),"Settings did not open")
+arg1="LeftButton"
+HLE.advancedButton.scripts.OnMouseUp()
+assert(HLE.settings:GetHeight()==600,"Advanced options didn't expand")
+HLE.advancedButton.scripts.OnMouseUp()
+assert(HLE.settings:GetHeight()==420,"Advanced options didn't collapse")
+HLE.langButtons[2].scripts.OnMouseUp()
+assert(HLE.Language()=="hu" and HLE_DB.language=="hu","Language button didn't switch to Hungarian")
+HLE.langButtons[1].scripts.OnMouseUp()
+assert(HLE.Language()=="en","English fallback button failed")
 HLE.ToggleSettings();assert(not HLE.settings:IsShown(),"Settings did not close")
 assert(HLE.settingsEnabled,"HUD recovery control missing")
 assert(HLE.ChangeHudScale(1) and HLE_DB.scale==1 and hleScaleCalls==1)
@@ -75,6 +84,16 @@ assert(HLE_DB.profiles[1] and HLE_DB.profiles[1].meter.x==190,"Profile lost pane
 HLE_DB.meter={x=900,y=80}
 HLE.Profile("load",1)
 assert(HLE_DB.meter.x==190,"Saved panel location did not restore")
+-- Reset needs two deliberate clicks and must not touch persistent character data.
+HLE_DB.journal={{key="ring:123",name="Verified ring"}};
+arg1="LeftButton"
+HLE.profileReset.scripts.OnMouseUp()
+assert(HLE_DB.meter.x==190 and HLE.settingsResetArmed==true,
+    "Single reset click destroyed saved positions")
+HLE.profileReset.scripts.OnMouseUp()
+assert(HLE_DB.meter==nil and HLE.settingsResetArmed==false,
+    "Confirmed layout reset did not clear positions")
+assert(HLE_DB.journal[1].key=="ring:123","Layout reset erased saved character journal")
 HLE.BuildMinimapLauncher()
 assert(HLE.launcher and HLE.launcher:IsShown(),"Minimap launcher was not created")
 assert(HLE.launcher.point and HLE.launcher.point[2]==Minimap,
