@@ -23,6 +23,7 @@ jobs:
           sudo apt-get install -y -qq lua5.1
           find HolyLightEclipse -name '*.lua' -type f -print0 | xargs -0 -n 1 luac5.1 -p
           (cd HolyLightEclipse && lua5.1 Tests/meter_scope.lua)
+          (cd HolyLightEclipse && lua5.1 Tests/feature_panels.lua)
       - name: Build installable folder ZIP
         shell: bash
         run: |
