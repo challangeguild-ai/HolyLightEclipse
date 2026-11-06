@@ -72,8 +72,10 @@ function H.UpdateCollapsedPanels(s)
             if display then
                 h:SetScale(HLE_DB.scale or 1);
                 if key=="meter" and s and s.active then
-                    local rate=H.Number(s.dps);
-                    spec.label:SetText("DPS  "..H.Short(rate));
+                    local meter=H.ReadMeter and H.ReadMeter(s) or {};
+                    local rate=H.Number(meter.rate) or H.Number(s.dps);
+                    local unit=meter.healing and "HPS" or "DPS";
+                    spec.label:SetText(unit.."  "..H.Short(rate));
                 elseif key=="party" then
                     spec.label:SetText("PARTY  "..H.Short(H.Call("GetNumPartyMembers")).." MEMBERS");
                 else spec.label:SetText(spec.title); end
