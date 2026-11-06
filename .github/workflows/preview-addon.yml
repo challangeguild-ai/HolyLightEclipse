@@ -39,11 +39,11 @@ jobs:
                       if line.strip() and not line.startswith("#")]
           for name in manifest:
               assert (folder / name).is_file(), f"Missing TOC module: {name}"
-          required = ["PartyRescue.lua", "CombatText.lua", "GroupMap.lua", "View.lua"]
+          required = ["PartyRescue.lua", "CombatText.lua", "GroupMap.lua", "BagSkin.lua", "BossAlerts.lua", "EndSummary.lua", "View.lua"]
           assert all((folder / name).is_file() for name in required)
           out = Path("dist")
           out.mkdir(exist_ok=True)
-          target = out / "HolyLightEclipse-coop-rescue-preview.zip"
+          target = out / "HolyLightEclipse-0.9.7-full-preview.zip"
           files = sorted(path for path in folder.rglob("*") if path.is_file())
           with ZipFile(target, "w", ZIP_DEFLATED) as archive:
               for path in files:
@@ -58,7 +58,7 @@ jobs:
       - name: Upload installable preview ZIP
         uses: actions/upload-artifact@v4
         with:
-          name: HolyLightEclipse-coop-rescue-preview
+          name: HolyLightEclipse-0.9.7-full-preview
           path: dist/
           if-no-files-found: error
           retention-days: 30
