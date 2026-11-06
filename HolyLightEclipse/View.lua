@@ -390,7 +390,11 @@ local function Command(msg)
     elseif msg=="bossalerts" then
         HLE_DB.bossAlerts=not HLE_DB.bossAlerts;
         if not HLE_DB.bossAlerts then H.StopBossAlerts(); end
-    elseif msg=="summary" then H.ToggleEndSummary();
+    elseif msg=="summary" then
+        HLE_DB.showEndSummary=not HLE_DB.showEndSummary;
+        if not HLE_DB.showEndSummary then H.ResetEndSummary();
+        else H.UpdateEndSummary(H.Read()); end
+    elseif msg=="summary show" then H.ToggleEndSummary();
     elseif msg=="rescue" then
         HLE_DB.rescueArrow=not HLE_DB.rescueArrow;
         if HLE_DB.rescueArrow then H.UpdateRescue(H.Read()); else H.ResetRescue(); end
@@ -439,7 +443,7 @@ local function Command(msg)
         local names={"AZS_GetPhase","AZS_GetMeter","AZS_SetHudShown","GetActionTexture","GetActionCooldown"};
         for i=1,table.getn(names) do Print(names[i]..": "..type(getglobal(names[i]))); end
         for name,err in pairs(H.errors) do Print(name..": "..err); end
-    else Print("/hle bag | bossalerts | skills | summary | rescue | damage | healing | meter self | meter party | meter rows 10 | meter width 320 | on | off | native | meter | meter run | meter boss | meter heal | effects | gear | loot | loot clear | plates | plates 1.2 | unlock | lock | reset | scale 0.8 | levels | status"); end
+    else Print("/hle bag | bossalerts | skills | summary | summary show | rescue | damage | healing | meter self | meter party | meter rows 10 | meter width 320 | on | off | native | meter | meter run | meter boss | meter heal | effects | gear | loot | loot clear | plates | plates 1.2 | unlock | lock | reset | scale 0.8 | levels | status"); end
 end
 local function Initialize()
     if ready then return; end
