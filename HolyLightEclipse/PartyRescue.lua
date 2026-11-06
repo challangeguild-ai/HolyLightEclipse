@@ -18,44 +18,54 @@ end
 
 function H.BuildRescue()
     local frame = CreateFrame("Frame", "HLERescueGuide", UIParent);
-    frame:SetWidth(262); frame:SetHeight(70);
-    frame:SetPoint("CENTER", UIParent, "CENTER", 0, 126);
+    frame:SetWidth(274); frame:SetHeight(97);
+    -- Keep rescue information on the left, clear of native center-screen banners.
+    -- Center-left with an upward offset avoids the existing equipment panel.
+    frame:SetPoint("LEFT", UIParent, "LEFT", 22, 185);
     frame:SetFrameStrata("HIGH"); frame:EnableMouse(false);
 
     local bg = frame:CreateTexture(nil, "BACKGROUND");
     bg:SetTexture(GOLD); bg:SetAllPoints(frame);
-    bg:SetVertexColor(0.035, 0.022, 0.065, 0.88);
+    bg:SetVertexColor(0.035, 0.022, 0.065, 0.93);
 
     local trim = frame:CreateTexture(nil, "BORDER");
-    trim:SetTexture(GOLD); trim:SetWidth(262); trim:SetHeight(2);
+    trim:SetTexture(GOLD); trim:SetWidth(274); trim:SetHeight(2);
     trim:SetPoint("TOP", frame, "TOP", 0, 0);
     trim:SetVertexColor(0.98, 0.73, 0.33, 1);
 
+    local title = frame:CreateFontString(nil, "OVERLAY");
+    title:SetFont("Fonts\\FRIZQT__.TTF", 13, "OUTLINE");
+    title:SetPoint("TOPLEFT", frame, "TOPLEFT", 12, -9);
+    title:SetWidth(250); title:SetHeight(20);
+    title:SetTextColor(0.99, 0.80, 0.44);
+    title:SetText("ALLIES DOWN");
+    frame.title = title;
+
+    frame.names = {};
+    for i=1,4 do
+        local name=frame:CreateFontString(nil, "OVERLAY");
+        name:SetFont("Fonts\\FRIZQT__.TTF", 13, "OUTLINE");
+        name:SetPoint("TOPLEFT", frame, "TOPLEFT", 13, -34-(i-1)*19);
+        name:SetWidth(248); name:SetHeight(18);
+        name:SetJustifyH("LEFT"); name:SetTextColor(1, 0.25, 0.28);
+        name:Hide(); frame.names[i]=name;
+    end
+
     local arrow = frame:CreateFontString(nil, "OVERLAY");
-    arrow:SetFont("Fonts\\FRIZQT__.TTF", 33, "OUTLINE");
-    arrow:SetPoint("LEFT", frame, "LEFT", 8, -2);
-    arrow:SetWidth(50); arrow:SetHeight(54);
+    arrow:SetFont("Fonts\\FRIZQT__.TTF", 25, "OUTLINE");
+    arrow:SetWidth(38); arrow:SetHeight(27);
     arrow:SetJustifyH("CENTER"); arrow:SetTextColor(1, 0.83, 0.36);
     frame.arrow = arrow;
 
-    local title = frame:CreateFontString(nil, "OVERLAY");
-    title:SetFont("Fonts\\FRIZQT__.TTF", 13, "OUTLINE");
-    title:SetPoint("TOPLEFT", frame, "TOPLEFT", 62, -14);
-    title:SetWidth(194); title:SetHeight(18);
-    title:SetTextColor(1, 0.58, 0.44);
-    frame.title = title;
-
     local detail = frame:CreateFontString(nil, "OVERLAY");
     detail:SetFont("Fonts\\FRIZQT__.TTF", 11, "OUTLINE");
-    detail:SetPoint("TOPLEFT", frame, "TOPLEFT", 62, -36);
-    detail:SetWidth(194); detail:SetHeight(19);
+    detail:SetWidth(210); detail:SetHeight(22);
     detail:SetTextColor(1, 0.94, 0.80);
     frame.detail = detail;
 
     frame:Hide();
     H.rescueGuide = frame;
 end
-
 local function FallbackParty()
     local list = {};
     local count = H.Number(H.Call("GetNumPartyMembers")) or 0;
@@ -132,9 +142,7 @@ local function Announce(name)
     if DEFAULT_CHAT_FRAME and type(DEFAULT_CHAT_FRAME.AddMessage) == "function" then
         pcall(DEFAULT_CHAT_FRAME.AddMessage, DEFAULT_CHAT_FRAME, "|cffffc453[Holy Light]|r "..message);
     end
-    if UIErrorsFrame and type(UIErrorsFrame.AddMessage) == "function" then
-        pcall(UIErrorsFrame.AddMessage, UIErrorsFrame, message, 1, 0.38, 0.28);
-    end
+    -- Avoid another center-screen warning: the persistent rescue panel owns this notice.
     if type(PlaySound) == "function" then pcall(PlaySound, "RaidWarning"); end
 end
 
@@ -168,8 +176,24 @@ function H.UpdateRescue(s)
         end
     end
     target = target or down[1];
-    local extra = table.getn(down)>1 and (" (+"..(table.getn(down)-1)..")") or "";
-    H.rescueGuide.title:SetText("ALLY DOWN: "..H.Text(target.name, "Teammate")..extra);
+
+    -- Every downed ally gets their own high-contrast RED name, not a +N counter.
+    local count=math.min(4,table.getn(down));
+    H.rescueGuide.title:SetText(count==1 and "ALLY DOWN" or "ALLIES DOWN");
+    H.rescueGuide:SetHeight(78+count*19);
+    for i=1,4 do
+        local label=H.rescueGuide.names[i];
+        if i<=count then
+            local name=H.Text(down[i].name,"Teammate");
+            label:SetText(name); label:Show();
+        else label:SetText(""); label:Hide(); end
+    end
+
+    local arrowTop=-42-count*19;
+    H.rescueGuide.arrow:ClearAllPoints();
+    H.rescueGuide.arrow:SetPoint("TOPLEFT",H.rescueGuide,"TOPLEFT",12,arrowTop);
+    H.rescueGuide.detail:ClearAllPoints();
+    H.rescueGuide.detail:SetPoint("TOPLEFT",H.rescueGuide,"TOPLEFT",52,arrowTop-3);
     local facing = type(player)=="table" and H.Number(player.facing) or nil;
     if best and facing then
         if best < 1 then
@@ -181,7 +205,7 @@ function H.UpdateRescue(s)
             H.rescueGuide.detail:SetText(H.Short(best).." yd  |  "..direction);
         end
     else
-        -- Do not show a misleading arrow when the native position or facing is unavailable.
+        -- No guessed directional guidance when the exact corpse location is unknown.
         H.rescueGuide.arrow:Hide();
         H.rescueGuide.detail:SetText("POSITION UNAVAILABLE");
     end
