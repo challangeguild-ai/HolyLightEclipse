@@ -4,11 +4,20 @@ local cards,queue={},{};
 local clock,serial,tick=0,0,0;
 local deliveries={}; local fallbackUntil=0;
 local intakeConfirmed=false;
+local lastMarkLine=nil;
 local function Plain(text)
     text=string.gsub(text,"|c%x%x%x%x%x%x%x%x",""); return string.gsub(text,"|r","");
 end
 local function Trim(text)
     local trimmed=string.gsub(text,"^%s*(.-)%s*$","%1"); return trimmed;
+end
+-- Only a native, observed reward message supplies a Marks total; never guess it.
+local function ParseMarks(text)
+    if type(text)~="string" then return nil,nil; end
+    local plain=Trim(Plain(text));
+    local _,_,gain,total=string.find(plain,"^You earn ([%d%.]+) marks? %(([%d%.]+) in all%)%.$");
+    if not gain then return nil,nil; end
+    return tonumber(gain),tonumber(total);
 end
 local function Boolean(v)
     if v==true or v==1 or v=="1" then return true; end
@@ -73,6 +82,19 @@ function H.ClearLoot()
 end
 function H.LootEvent(eventName,text)
     if not HLE_DB or not HLE_DB.enabled or H.suspended then return false; end
+    if eventName=="CHAT_MSG_SYSTEM" then
+        local gained,total=ParseMarks(text);
+        if H.Number(gained) and gained>0 and H.Number(total) and total>=0 then
+            H.marksBalance=total;
+            if HLE_DB.showLoot and text~=lastMarkLine then
+                serial=serial+1;
+                if table.getn(queue)>=32 then table.remove(queue,1); end
+                table.insert(queue,{serial=serial,marks=true,name="+"..tostring(gained).." Marks",
+                    detail="TOTAL "..tostring(total).." Marks"});
+            end
+            lastMarkLine=text;return true;
+        end
+    end
     local entry,recognized=H.ParseLoot(text);
     if not entry then
         if recognized then fallbackUntil=clock+8; intakeConfirmed=false; H.RestoreLoot(); end
@@ -136,6 +158,7 @@ local function Paint(c)
     c.heading:ClearAllPoints(); c.heading:SetPoint("TOPLEFT",c,"TOPLEFT",x,-7); c.heading:SetWidth(width);
     c.name:ClearAllPoints(); c.name:SetPoint("TOPLEFT",c,"TOPLEFT",x,-23); c.name:SetWidth(width);
     c.detail:ClearAllPoints(); c.detail:SetPoint("TOPLEFT",c,"TOPLEFT",x,-52); c.detail:SetWidth(width);
+    c.heading:SetText(entry.marks and "MARKS EARNED" or "LOOT RECEIVED");
     c.name:SetText(entry.name); c.name:SetTextColor(unpack(entry.color or {1,0.94,0.80})); c.detail:SetText(entry.detail or "");
 end
 function H.UpdateLoot(delta)
