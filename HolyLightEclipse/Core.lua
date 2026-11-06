@@ -136,8 +136,16 @@ function H.Read()
     s.xp, s.xpn = H.Pair(r.xp, r.xpn);
     s.level = H.Number(r.lvl);
     s.time = H.Number(H.Call("AZS_GetRunTime"));
-    -- The host may advance AZS_RUN.t while the local phase is dead.
-    if s.coopDown and H.Number(r.t) and (not s.time or r.t>s.time) then s.time=r.t; end
+    -- During co-op down state the party's server clock can still advance.
+    -- Only accept values belonging to this very run; never extrapolate fabricated time.
+    if s.coopDown then
+        if H.Number(r.t) and (not s.time or r.t>s.time) then s.time=r.t; end
+        local context=H.Table(H.Call("AZS_GetMeterContext"));
+        if type(z.run)=="string" and context.runId==z.run and H.Number(context.asOfRunSeconds)
+                and (not s.time or context.asOfRunSeconds>s.time) then
+            s.time=context.asOfRunSeconds;
+        end
+    end
     s.zone = H.Text(z.zname, "AZEROTH SURVIVORS");
     s.heroic = H.Number(z.heroic);
     s.affixes = type(z.affixes)=="string" and z.affixes or "";
