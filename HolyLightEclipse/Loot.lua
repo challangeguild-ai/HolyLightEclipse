@@ -4,7 +4,7 @@ local cards,queue={},{};
 local clock,serial,tick=0,0,0;
 local deliveries={}; local fallbackUntil=0;
 local intakeConfirmed=false;
-local lastMarkLine=nil;
+local lastMarkLine,lastMarkAt=nil,nil;
 local function Plain(text)
     text=string.gsub(text,"|c%x%x%x%x%x%x%x%x",""); return string.gsub(text,"|r","");
 end
@@ -86,13 +86,15 @@ function H.LootEvent(eventName,text)
         local gained,total=ParseMarks(text);
         if H.Number(gained) and gained>0 and H.Number(total) and total>=0 then
             H.marksBalance=total;
-            if HLE_DB.showLoot and text~=lastMarkLine then
+            local now=H.Number(H.Call("GetTime"));
+            local duplicate=text==lastMarkLine and now and lastMarkAt and now-lastMarkAt<1;
+            if HLE_DB.showLoot and not duplicate then
                 serial=serial+1;
                 if table.getn(queue)>=32 then table.remove(queue,1); end
                 table.insert(queue,{serial=serial,marks=true,name="+"..tostring(gained).." Marks",
                     detail="TOTAL "..tostring(total).." Marks"});
             end
-            lastMarkLine=text;return true;
+            lastMarkLine=text;lastMarkAt=now;return true;
         end
     end
     local entry,recognized=H.ParseLoot(text);
