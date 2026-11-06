@@ -78,9 +78,21 @@ assert(hud.banners==false);
 HLE.TakeOver({active=false,hasAPI=true,phase="dead",player={}});
 assert(hud.banners==false,"Banner spam reappeared on the death screen");
 HLE_DB.bossAlerts=false; HLE.TakeOver(state);
-assert(hud.banners==true,"Native boss notices should return if custom boss alerts are off");
+assert(hud.banners==false,"Quiet banner setting must remain independent of boss alerts");
 HLE_DB.bossAlerts=true; HLE.TakeOver(state);
 assert(hud.banners==false);
+-- Other native HUD messaging must remain intact: only exact, fresh game banner
+-- duplicates are suppressed when quiet mode is on.
+AZS_BANNER={id=51,time=now,text="Guardian defeated"};
+AZS_BANNERS={AZS_BANNER};
+UIErrorsFrame:AddMessage("Guardian defeated");
+assert(centers==0,"A fresh game banner was duplicated via UIErrorsFrame");
+UIErrorsFrame:AddMessage("Out of range");
+assert(centers==1,"Unrelated native error message was incorrectly suppressed");
+HLE_DB.quietBanners=false; HLE.TakeOver(state);
+UIErrorsFrame:AddMessage("Guardian defeated");
+assert(centers==2,"Game banner text was still blocked after unmuting");
+HLE_DB.quietBanners=true; HLE.TakeOver(state);
 HLE_DB.enabled=false; HLE.TakeOver(state);
 assert(hud.banners==true,"Native banners did not restore when addon disabled");
 print("Rescue layout, red names, red boss and quiet banner restoration passed");
