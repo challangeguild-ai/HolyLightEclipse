@@ -291,7 +291,7 @@ function H.Render(s)
     -- Upcoming bosses are shown only in the integrated timeline.
     H.nextBoss:SetText(nextText..(s.stored and s.stored>0 and ("   +"..H.Short(s.stored).." levels: /hle levels") or ""));
     local encounters={};
-    if s.active and not s.playerDead and not H.lifeDead then
+    if s.active and ((not s.playerDead and not H.lifeDead) or s.coopDown) then
         for i=1,table.getn(s.bosses) do
             local b=H.Table(s.bosses[i]);
             if H.Number(b.hp) and b.hp>0 and H.Number(b.hpm) and b.hpm>0 then table.insert(encounters,b); end
