@@ -607,6 +607,8 @@ function HLE_OnUpdate(delta)
                 Print("Loot notices paused: "..tostring(message));
             end
         end
+        -- Modules may re-show their roots; collapsed mode always wins after updates.
+        H.UpdateCollapsedPanels(s);
     end);
     if not ok then
         HLE_DB.enabled=false; Visibility(); Print("HUD stopped: "..tostring(err)..". Native HUD restored. /hle on to retry.");
