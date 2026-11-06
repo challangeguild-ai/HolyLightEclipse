@@ -5,6 +5,7 @@ local H=HLE;
 local lastRun,lastHP,lastMax,lastAlert,armed=nil,nil,nil,nil,false;
 local function Reset()
     lastRun,lastHP,lastMax,lastAlert,armed=nil,nil,nil,nil,false;
+    if H.HideThreatNotice then H.HideThreatNotice(); end
 end
 function H.ResetThreatAssist() Reset(); end
 function H.UpdateThreatAssist(s)
