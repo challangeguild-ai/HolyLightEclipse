@@ -439,6 +439,8 @@ function H.Render(s)
     H.UpdateExtras(s,0.05);
     local alertOK,alertError=pcall(H.UpdateBossAlerts,s);
     if not alertOK then HLE_DB.bossAlerts=false; H.StopBossAlerts(); H.errors.BossAlerts=tostring(alertError); end
+    local encounterOK,encounterError=pcall(H.UpdateEncounterAssist,s);
+    if not encounterOK then H.errors.EncounterAssist=tostring(encounterError); H.ResetEncounterAssist(); end
     local dangerOK,dangerError=pcall(H.UpdateThreatAssist,s);
     if not dangerOK then HLE_DB.threatAlerts=false; H.ResetThreatAssist(); H.errors.ThreatAssist=tostring(dangerError); end
     local summaryOK,summaryError=pcall(H.UpdateEndSummary,s);
@@ -453,7 +455,7 @@ local function Visibility()
     end
     if not HLE_DB.showGear or not HLE_DB.enabled then H.ClearEquipment(); end
     if not HLE_DB.showLoot or not HLE_DB.enabled then H.ClearLoot(); end
-    if not HLE_DB.enabled then H.ResetThreatAssist(); H.ClearCollapsedPanels(); H.HideBossLoot(); H.RestoreChat(); H.StopCombatText(); H.RestoreNative(); H.RestoreNameplates(); H.ResetTracking(); H.effects:Hide(); H.ClearExtras(); H.RestoreParty(); H.ResetRescue(); H.RestoreMinimap(); H.RestoreLegacyBuffs(); H.ClearBagSkin(); H.StopBossAlerts(); H.ResetEndSummary(); end
+    if not HLE_DB.enabled then H.ResetEncounterAssist(); H.ResetThreatAssist(); H.ClearCollapsedPanels(); H.HideBossLoot(); H.RestoreChat(); H.StopCombatText(); H.RestoreNative(); H.RestoreNameplates(); H.ResetTracking(); H.effects:Hide(); H.ClearExtras(); H.RestoreParty(); H.ResetRescue(); H.RestoreMinimap(); H.RestoreLegacyBuffs(); H.ClearBagSkin(); H.StopBossAlerts(); H.ResetEndSummary(); end
 end
 function H.ApplyLayout()
     for i=1,table.getn(panels) do Position(panels[i]); end
@@ -494,7 +496,7 @@ local function Command(msg)
     elseif msg=="banners" then
         HLE_DB.quietBanners=not HLE_DB.quietBanners;
         H.TakeOver(H.Read());
-        Print(HLE_DB.quietBanners and "Quiet native banners: ON. Boss warning remains visible." or "Native banners restored.");
+        Print(HLE_DB.quietBanners and "Native game banners: HIDDEN. Custom boss warnings remain independent." or "Native game banners: RESTORED.");
     elseif msg=="summary" then
         HLE_DB.showEndSummary=not HLE_DB.showEndSummary;
         if not HLE_DB.showEndSummary then H.ResetEndSummary();
@@ -552,6 +554,10 @@ local function Command(msg)
         Print("Nameplates: "..H.Short(table.getn(H.plateRecords)).."; inventory API: "..type(GetInventoryItemTexture));
         local names={"AZS_GetPhase","AZS_GetMeter","AZS_SetHudShown","GetActionTexture","GetActionCooldown"};
         for i=1,table.getn(names) do Print(names[i]..": "..type(getglobal(names[i]))); end
+        Print("Banners: quiet="..tostring(HLE_DB.quietBanners)..
+            "; native API="..tostring(H.Call("AZS_IsHudShown","banners"))..
+            "; CVar="..tostring(H.Call("GetCVar","hudBanners"))..
+            "; last kind="..H.Text(H.Table(AZS_BANNER).kind,"none"));
         for name,err in pairs(H.errors) do Print(name..": "..err); end
     else Print("/hle settings | launcher | lang en/hu/de/zhCN | threats | threatsound | bossalerts | banners | bag | skills | summary | summary show | rescue | damage | healing | meter self | meter party | meter rows 10 | meter width 320 | on | off | native | meter | meter run | meter boss | meter heal | effects | gear | loot | loot clear | plates | plates 1.2 | unlock | lock | reset | scale 0.8 | levels | status"); end
 end
@@ -617,17 +623,17 @@ function HLE_OnEvent(evt,name)
     elseif evt=="PLAYER_LOGOUT" or evt=="PLAYER_LEAVING_WORLD" then
         H.RestoreChat(); H.StopCombatText();
         H.RestoreNameplates(); H.ClearEquipment();
-        H.ClearLoot(); H.ResetEncounters("world-leave"); H.ResetTracking(); H.ClearExtras(); H.RestoreParty(); H.ResetRescue(); H.RestoreMinimap(); H.RestoreLegacyBuffs(); H.ClearBagSkin(); H.StopBossAlerts(); H.ResetThreatAssist(); H.ResetEndSummary(); H.ResetTimeline(); if H.effects then H.effects:Hide(); end
+        H.ClearLoot(); H.ResetEncounters("world-leave"); H.ResetTracking(); H.ClearExtras(); H.RestoreParty(); H.ResetRescue(); H.RestoreMinimap(); H.RestoreLegacyBuffs(); H.ClearBagSkin(); H.StopBossAlerts(); H.ResetThreatAssist(); H.ResetEncounterAssist(); H.ResetEndSummary(); H.ResetTimeline(); if H.effects then H.effects:Hide(); end
         H.LeaveSkillWorld();
         if ready then H.RestoreNative(); H.suspended=true; end
     elseif evt=="CHAT_MSG_ADDON" then
         H.TrackingEvent(name);
-        if name=="AZSZONE" then H.StartSkillRun("AZSZONE"); H.lifeDead=false; H.deathExplicit=false; H.ResetEncounters("AZSZONE"); H.ClearLoot(); H.ResetTracking(); H.ResetMeterCache(); H.ResetTimeline(); H.ResetRescue(); H.ResetBossAlerts(); H.ResetThreatAssist(); H.ResetEndSummary();
+        if name=="AZSZONE" then H.StartSkillRun("AZSZONE"); H.lifeDead=false; H.deathExplicit=false; H.ResetEncounters("AZSZONE"); H.ClearLoot(); H.ResetTracking(); H.ResetMeterCache(); H.ResetTimeline(); H.ResetRescue(); H.ResetBossAlerts(); H.ResetThreatAssist(); H.ResetEncounterAssist(); H.ResetEndSummary();
         elseif name=="AZSBOSSES" then H.TimelineUpdated();
         elseif name=="AZSSPELLS" then H.SpellsUpdated();
         elseif name=="AZSUNITS" then H.EncounterUnitsUpdated(); end
     elseif evt=="ADDON_LOADED" and name=="HolyLightEclipse" or evt=="PLAYER_LOGIN" or evt=="PLAYER_ENTERING_WORLD" then
-        if evt=="PLAYER_ENTERING_WORLD" then H.suspended=false; H.EnterSkillWorld(); H.lifeDead=false; H.deathExplicit=false; H.ResetEncounters("world-enter"); H.ResetMeterCache(); H.ResetTimeline(); H.ResetRescue(); H.StopBossAlerts(); H.ResetThreatAssist(); H.ResetEndSummary(); end
+        if evt=="PLAYER_ENTERING_WORLD" then H.suspended=false; H.EnterSkillWorld(); H.lifeDead=false; H.deathExplicit=false; H.ResetEncounters("world-enter"); H.ResetMeterCache(); H.ResetTimeline(); H.ResetRescue(); H.StopBossAlerts(); H.ResetThreatAssist(); H.ResetEncounterAssist(); H.ResetEndSummary(); end
         Initialize();
     end
 end
