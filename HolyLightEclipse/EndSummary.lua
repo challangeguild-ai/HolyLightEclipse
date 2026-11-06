@@ -65,11 +65,14 @@ function H.UpdateEndSummary(s)
     if not HLE_DB.enabled or HLE_DB.showEndSummary==false or H.suspended then
         H.endSummary:Hide(); return;
     end
-    if s.phase~="dead" and s.phase~="victory" then
+    -- A voluntary exit returns the native phase to ready, while AZS_END
+    -- retains result="left". Do not show an old non-left result in ready.
+    if s.phase~="dead" and s.phase~="victory" and s.phase~="ready" then
         H.endSummary:Hide(); return;
     end
     local summary=H.Call("AZS_GetRunSummary");
-    if type(summary)~="table" or (summary.result~="victory" and summary.result~="defeat" and summary.result~="left") then
+    if type(summary)~="table" or (summary.result~="victory" and summary.result~="defeat" and summary.result~="left") or
+        (s.phase=="ready" and summary.result~="left") then
         H.endSummary:Hide(); return;
     end
     local run=H.Table(AZS_ZONE).run;
