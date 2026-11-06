@@ -29,7 +29,9 @@ function H.UpdateThreatAssist(s)
 
     -- AZS_TAKEN is cumulative verified damage, not a forecast of a cast.
     -- An increase in the "area" row proves a ground-effect hit reached the hero.
-    local area=nil;
+    -- An empty published ledger means zero observed area damage.
+    -- Absent ledger data is NOT interpreted as zero.
+    local area=type(AZS_TAKEN)=="table" and 0 or nil;
     local taken=H.Table(AZS_TAKEN);
     for i=1,table.getn(taken) do
         local row=H.Table(taken[i]);
