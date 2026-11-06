@@ -372,10 +372,12 @@ function H.Render(s)
     H.killStats:SetText(s.active and (H.L("kills").." "..H.MoneyShort(s.kills)) or "");
     H.stats:SetText(s.active and (H.L("gold").." "..H.MoneyShort(s.gold).."   "..H.L("cache").." "..H.MoneyShort(s.cache)) or "");
     local function Full(v) return H.Number(v) and string.format("%.0f",v) or "--"; end
-    H.fullStats=s.active and (H.L("kills").." "..Full(s.kills).."\n"..H.L("gold").." "..Full(s.gold).."\n"..H.L("cache").." "..Full(s.cache)) or nil;
+    H.fullStats=s.active and (H.L("kills").." "..Full(s.kills).."\n"..H.L("gold").." "..Full(s.gold).."\n"..H.L("cache").." "..Full(s.cache)..
+        (H.Number(H.marksBalance) and ("\nMARKS "..tostring(H.marksBalance)) or "")) or nil;
     local nextText="";
     -- Upcoming bosses are shown only in the integrated timeline.
-    H.nextBoss:SetText(nextText..(s.stored and s.stored>0 and ("   +"..H.Short(s.stored).." levels: /hle levels") or ""));
+    H.nextBoss:SetText((s.active and H.Number(H.marksBalance) and ("MARKS "..tostring(H.marksBalance)) or "")..
+        nextText..(s.stored and s.stored>0 and ("   +"..H.Short(s.stored).." levels: /hle levels") or ""));
     local encounters={};
     if s.active and ((not s.playerDead and not H.lifeDead) or s.coopDown) then
         for i=1,table.getn(s.bosses) do
@@ -558,6 +560,8 @@ local function Command(msg)
             "; native API="..tostring(H.Call("AZS_IsHudShown","banners"))..
             "; CVar="..tostring(H.Call("GetCVar","hudBanners"))..
             "; last kind="..H.Text(H.Table(AZS_BANNER).kind,"none"));
+        Print("Center messages seen: "..H.Short(H.nativeCenterSeen or 0)..
+            "; last: "..H.Text(H.nativeCenterLast,"none"));
         for name,err in pairs(H.errors) do Print(name..": "..err); end
     else Print("/hle settings | launcher | lang en/hu/de/zhCN | threats | threatsound | bossalerts | banners | bag | skills | summary | summary show | rescue | damage | healing | meter self | meter party | meter rows 10 | meter width 320 | on | off | native | meter | meter run | meter boss | meter heal | effects | gear | loot | loot clear | plates | plates 1.2 | unlock | lock | reset | scale 0.8 | levels | status"); end
 end
