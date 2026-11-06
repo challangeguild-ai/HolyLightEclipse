@@ -96,7 +96,7 @@ local function Boolean(v)
     if v == false or v == 0 or v == "0" then return false; end
     return nil;
 end
-function H.RestoreNative(keepBosses)
+function H.RestoreNative(keepBosses,keepBanners)
     if H.ReleaseActionButtons then H.ReleaseActionButtons(); end
     for region, data in pairs(promptRegions) do
         if region.SetText == data.wrapper then
@@ -112,7 +112,7 @@ function H.RestoreNative(keepBosses)
     noticeHooks = {};
     local backup = H.Table(HLE_DB.nativeBackup);
     for part, shown in pairs(backup) do
-        if type(AZS_SetHudShown) == "function" and not (keepBosses and part=="bosses") then
+        if type(AZS_SetHudShown) == "function" and not (keepBosses and part=="bosses") and not (keepBanners and part=="banners") then
             local ok = pcall(AZS_SetHudShown, part, shown);
             if ok then backup[part] = nil; end
         end
@@ -133,7 +133,17 @@ function H.TakeOver(s)
     if not s.active and not preparing then
         -- Keep ownership across death/end screens: restoring the native boss HUD
         -- here can redisplay its retained encounter from the previous life/run.
-        H.RestoreNative(true);
+        local quiet=HLE_DB.quietBanners~=false and HLE_DB.bossAlerts~=false;
+        H.RestoreNative(true,quiet);
+        -- Keep the banner channel quiet through a death or victory screen,
+        -- while still restoring its original state when the addon is disabled.
+        if quiet and type(AZS_IsHudShown)=="function" and type(AZS_SetHudShown)=="function" then
+            local native=Boolean(H.Call("AZS_IsHudShown","banners"));
+            if native~=nil then
+                if HLE_DB.nativeBackup.banners==nil then HLE_DB.nativeBackup.banners=native; end
+                if native then H.Call("AZS_SetHudShown","banners",false); end
+            end
+        end
         local current=Boolean(H.Call("AZS_IsHudShown","bosses"));
         if current~=nil and type(AZS_SetHudShown)=="function" then
             if HLE_DB.nativeBackup.bosses==nil then HLE_DB.nativeBackup.bosses=current; end
