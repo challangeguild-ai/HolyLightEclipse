@@ -18,10 +18,10 @@ function H.BuildBossAlerts()
     border:SetVertexColor(0.96,0.72,0.35,1);
     f.title=f:CreateFontString(nil,"OVERLAY"); f.title:SetFont("Fonts\\FRIZQT__.TTF",16,"OUTLINE");
     f.title:SetPoint("TOP",f,"TOP",0,-8); f.title:SetWidth(310); f.title:SetHeight(21);
-    f.title:SetText("BOSS INCOMING"); f.title:SetJustifyH("CENTER"); f.title:SetTextColor(1,0.72,0.40);
+    f.title:SetText("BOSS INCOMING"); f.title:SetJustifyH("CENTER"); f.title:SetTextColor(1,0.18,0.22);
     f.name=f:CreateFontString(nil,"OVERLAY"); f.name:SetFont("Fonts\\FRIZQT__.TTF",12,"OUTLINE");
     f.name:SetPoint("TOP",f,"TOP",0,-34); f.name:SetWidth(310); f.name:SetHeight(22);
-    f.name:SetJustifyH("CENTER"); f.name:SetTextColor(1,0.93,0.81);
+    f.name:SetJustifyH("CENTER"); f.name:SetTextColor(1,0.35,0.38);
     f:Hide(); H.bossWarning=f;
 end
 function H.BossBannerNotice(banner)
