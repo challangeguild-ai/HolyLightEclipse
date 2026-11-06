@@ -48,7 +48,9 @@ assert(HLE.bossWarning.title.text=="DANGER - LOW HEALTH","Boss notice displaced 
 clock=14.5;s.player.hp=26;HLE.UpdateThreatAssist(s);
 assert(sounds==1,"Danger spammed on consecutive updates");
 clock=17;HLE.UpdateBossAlerts(s);
-assert(not HLE.bossWarning:IsShown(),"Expired notice remained on screen");
+assert(HLE.bossWarning:IsShown() and HLE.bossWarning.title.text=="BOSS INCOMING",
+    "Deferred genuine boss arrival was lost after urgent HP warning");
+assert(HLE.bossWarning.name.text=="Boss Two");
 HLE.BossBannerNotice({id=3,kind="finalboss",name="Boss Three"});
 assert(HLE.bossWarning:IsShown() and HLE.bossWarning.title.text=="FINAL BOSS");
 clock=23;s.player.hp=100;HLE.UpdateThreatAssist(s);
