@@ -3,6 +3,37 @@ local GOLD, VIOLET = {0.95,0.74,0.35}, {0.63,0.39,0.93};
 local WHITE = "Interface\\AddOns\\HolyLightEclipse\\Media\\White.tga";
 local MEDIA = "Interface\\AddOns\\HolyLightEclipse\\Media\\";
 local panels, elapsed, ready = {}, 0, false;
+local function Notice(message)
+    if DEFAULT_CHAT_FRAME and DEFAULT_CHAT_FRAME.AddMessage then
+        DEFAULT_CHAT_FRAME:AddMessage("|cffffc453[Holy Light]|r "..message);
+    end
+end
+function H.SelectBoss(boss)
+    if type(boss)~="table" or type(boss.name)~="string" or boss.name=="" then return false; end
+    if H.IsPlayerDead() or H.lifeDead then Notice("Targeting unavailable while down."); return false; end
+    if type(TargetByName)~="function" then Notice("Boss click-to-target unavailable in this client."); return false; end
+    -- Vanilla exposes name targeting but no direct target-by-spawn-ID API.
+    local ok=pcall(TargetByName,boss.name,true);
+    if not ok then Notice("Targeting was rejected by the client."); return false; end
+    local name=H.Call("UnitName","target");
+    if name~=boss.name then
+        if type(TargetLastTarget)=="function" then pcall(TargetLastTarget); end
+        Notice("Could not safely select boss: "..boss.name);
+        return false;
+    end
+    local id=H.Number(H.Table(AZS_TARGET).id);
+    if id and H.Number(boss.id) and id~=boss.id then
+        -- The target snapshot may lag behind the native reticle.
+        Notice("Selected by name; boss instance could not be verified.");
+    end
+    return true;
+end
+local function AffixLabel(raw)
+    if type(raw)~="string" or raw=="" then return ""; end
+    local value=string.upper(raw);
+    value=string.gsub(value,",%s*","  /  ");
+    return value;
+end
 local function Text(p,size,x,y,w,color)
     local f=p:CreateFontString(nil,"OVERLAY"); f:SetFont("Fonts\\FRIZQT__.TTF",size,"OUTLINE");
     f:SetPoint("TOPLEFT",p,"TOPLEFT",x,y); f:SetWidth(w); f:SetHeight(size+5); f:SetJustifyH("LEFT");
@@ -147,6 +178,7 @@ local function Build()
     H.clock=Text(H.top,28,294,-20,156,{1,0.94,0.81}); H.clock:SetHeight(40);
     pcall(H.clock.SetFont,H.clock,"Fonts\\ARIALN.TTF",28,"OUTLINE"); H.clock:SetJustifyH("CENTER");
     H.zone=Text(H.top,13,24,-7,254); H.zone:SetHeight(20);
+    H.hcAffixes=Text(H.top,10,24,-54,263,{0.77,0.65,0.92}); H.hcAffixes:SetHeight(20);
     H.killStats=Text(H.top,12,184,-29,98,{0.95,0.91,0.84}); H.killStats:SetHeight(24); H.killStats:SetJustifyH("RIGHT");
     H.stats=Text(H.top,12,464,-29,256,{0.95,0.91,0.84}); H.stats:SetHeight(24);
     H.statsHover=CreateFrame("Frame",nil,H.top); H.statsHover:SetWidth(256); H.statsHover:SetHeight(24);
@@ -156,9 +188,24 @@ local function Build()
     end);
     H.statsHover:SetScript("OnLeave",function() if GameTooltip then GameTooltip:Hide(); end end);
     H.nextBoss=Text(H.top,10,464,-56,256,VIOLET); H.nextBoss:SetHeight(35);
-    H.bossPanel=CreateFrame("Frame",nil,H.top); H.bossPanel:SetWidth(560); H.bossPanel:SetHeight(72);
+    H.bossPanel=CreateFrame("Frame",nil,H.top); H.bossPanel:SetWidth(410); H.bossPanel:SetHeight(69);
     H.bossBars={};
-    for i=1,3 do H.bossBars[i]=Bar(H.bossPanel,0,-(i-1)*24,560,20,VIOLET); end
+    for i=1,3 do
+        local bar=Bar(H.bossPanel,0,-(i-1)*23,410,19,VIOLET);
+        bar.label:SetWidth(397); bar:EnableMouse(true);
+        bar:SetScript("OnMouseUp",function()
+            if arg1=="LeftButton" and this.boss then H.SelectBoss(this.boss); end
+        end);
+        bar:SetScript("OnEnter",function()
+            if GameTooltip and this.boss then
+                GameTooltip:SetOwner(this,"ANCHOR_TOP");
+                GameTooltip:SetText("Click to target: "..H.Text(this.boss.name));
+                GameTooltip:Show();
+            end
+        end);
+        bar:SetScript("OnLeave",function() if GameTooltip then GameTooltip:Hide(); end end);
+        H.bossBars[i]=bar;
+    end
     H.meter=Panel("HLEMeter","meter",280,240,"RIGHT",-35,-24);
     H.meterArt=Texture(H.meter,MEDIA.."MeterFrame.tga",0,0,280,240);
     H.meterTitle=Text(H.meter,12,13,-12,254); H.meterRows={};
@@ -283,7 +330,9 @@ function H.Render(s)
     end
     local runTime=H.Number(s.time);
     H.clock:SetText(s.phase=="ready" and "READY" or (runTime and runTime>=0 and string.format("%02d:%02d",math.floor(runTime/60),math.mod(math.floor(runTime),60)) or "--:--"));
-    H.zone:SetText(H.Text(s.zone,s.phase=="ready" and "Move to begin" or ""));
+    H.zone:SetText(H.Text(s.zone,s.phase=="ready" and "Move to begin" or "")..
+        (s.active and s.heroic and s.heroic>0 and ("   /   HC "..H.Short(s.heroic)) or ""));
+    H.hcAffixes:SetText(s.active and AffixLabel(s.affixes) or "");
     H.killStats:SetText(s.active and ("KILLS "..H.MoneyShort(s.kills)) or "");
     H.stats:SetText(s.active and ("GOLD "..H.MoneyShort(s.gold).."   CACHE "..H.MoneyShort(s.cache)) or "");
     local function Full(v) return H.Number(v) and string.format("%.0f",v) or "--"; end
@@ -303,7 +352,14 @@ function H.Render(s)
     H.bossPanel:ClearAllPoints(); H.bossPanel:SetPoint("TOP",H.top,"BOTTOM",0,-10);
     for i=1,3 do
         local bar,b=H.bossBars[i],encounters[i];
-        if b then bar:Show(); SetBar(bar,b.hp,b.hpm,H.Text(b.name).."  "); else bar:Hide(); end
+        if b then
+            bar.boss=b; bar:Show(); bar:SetValue(math.max(0,math.min(1,b.hp/b.hpm)));
+            local ratio=math.floor(100*b.hp/b.hpm+0.5);
+            bar.label:SetText(H.Text(b.name).."  "..H.Short(b.hp).."/"..H.Short(b.hpm).."  "..ratio.."%"..
+                (b.enraged and "  ENRAGED" or ""));
+            if b.enraged then bar:SetStatusBarColor(0.84,0.13,0.17);
+            else bar:SetStatusBarColor(unpack(VIOLET)); end
+        else bar.boss=nil; bar:Hide(); end
     end
     H.ClearBossTracking();
     if table.getn(encounters)>0 then H.bossPanel:Show(); else H.bossPanel:Hide(); end
