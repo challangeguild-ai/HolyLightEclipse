@@ -24,6 +24,7 @@ jobs:
           find HolyLightEclipse -name '*.lua' -type f -print0 | xargs -0 -n 1 luac5.1 -p
           (cd HolyLightEclipse && lua5.1 Tests/meter_scope.lua)
           (cd HolyLightEclipse && lua5.1 Tests/feature_panels.lua)
+          (cd HolyLightEclipse && lua5.1 Tests/rescue_banner.lua)
       - name: Build installable folder ZIP
         shell: bash
         run: |
@@ -43,7 +44,7 @@ jobs:
           assert all((folder / name).is_file() for name in required)
           out = Path("dist")
           out.mkdir(exist_ok=True)
-          target = out / "HolyLightEclipse-0.9.7-full-preview.zip"
+          target = out / "HolyLightEclipse-0.9.8-full-preview.zip"
           files = sorted(path for path in folder.rglob("*") if path.is_file())
           with ZipFile(target, "w", ZIP_DEFLATED) as archive:
               for path in files:
@@ -58,7 +59,7 @@ jobs:
       - name: Upload installable preview ZIP
         uses: actions/upload-artifact@v4
         with:
-          name: HolyLightEclipse-0.9.7-full-preview
+          name: HolyLightEclipse-0.9.8-full-preview
           path: dist/
           if-no-files-found: error
           retention-days: 30
