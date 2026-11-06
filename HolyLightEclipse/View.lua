@@ -183,6 +183,7 @@ local function Build()
     H.BuildGroupMap(Text,Texture,Bar,Panel); H.BuildRescue(); H.BuildBossLoot(Text,Texture); H.BuildTimeline(Text,Texture);
     H.loot=Panel("HLELoot","loot",300,216,"TOP",-295,0); H.BuildLoot(H.loot);
     H.BuildBossAlerts(); H.BuildEndSummary();
+    H.BuildCollapsePanels(panels);
 end
 function H.ClearSkillVisuals()
     if H.ReleaseActionButtons then H.ReleaseActionButtons(); end
@@ -348,6 +349,7 @@ function H.Render(s)
     if not alertOK then HLE_DB.bossAlerts=false; H.StopBossAlerts(); H.errors.BossAlerts=tostring(alertError); end
     local summaryOK,summaryError=pcall(H.UpdateEndSummary,s);
     if not summaryOK then HLE_DB.showEndSummary=false; H.ResetEndSummary(); H.errors.EndSummary=tostring(summaryError); end
+    H.UpdateCollapsedPanels(s);
 end
 local function Print(msg) if DEFAULT_CHAT_FRAME then DEFAULT_CHAT_FRAME:AddMessage(msg); end end
 local function Visibility()
@@ -357,11 +359,11 @@ local function Visibility()
     end
     if not HLE_DB.showGear or not HLE_DB.enabled then H.ClearEquipment(); end
     if not HLE_DB.showLoot or not HLE_DB.enabled then H.ClearLoot(); end
-    if not HLE_DB.enabled then H.HideBossLoot(); H.RestoreChat(); H.StopCombatText(); H.RestoreNative(); H.RestoreNameplates(); H.ResetTracking(); H.effects:Hide(); H.ClearExtras(); H.RestoreParty(); H.ResetRescue(); H.RestoreMinimap(); H.RestoreLegacyBuffs(); H.ClearBagSkin(); H.StopBossAlerts(); H.ResetEndSummary(); end
+    if not HLE_DB.enabled then H.ClearCollapsedPanels(); H.HideBossLoot(); H.RestoreChat(); H.StopCombatText(); H.RestoreNative(); H.RestoreNameplates(); H.ResetTracking(); H.effects:Hide(); H.ClearExtras(); H.RestoreParty(); H.ResetRescue(); H.RestoreMinimap(); H.RestoreLegacyBuffs(); H.ClearBagSkin(); H.StopBossAlerts(); H.ResetEndSummary(); end
 end
 function H.ApplyLayout()
     for i=1,table.getn(panels) do Position(panels[i]); end
-    Visibility(); H.UpdateTracking(H.Read()); H.UpdateExtras(H.Read(),1);
+    Visibility(); H.UpdateTracking(H.Read()); H.UpdateExtras(H.Read(),1); H.UpdateCollapsedPanels(H.Read());
 end
 local function Command(msg)
     msg=string.lower(msg or "");
@@ -461,6 +463,7 @@ local function Initialize()
     if HLE_DB.showMeter==nil then HLE_DB.showMeter=true; end
     if HLE_DB.showGear==nil then HLE_DB.showGear=true; end
     if HLE_DB.showLoot==nil then HLE_DB.showLoot=true; end
+    HLE_DB.collapsed=H.Table(HLE_DB.collapsed);
     if HLE_DB.showParty==nil then HLE_DB.showParty=true; end
     if HLE_DB.rescueArrow==nil then HLE_DB.rescueArrow=true; end
     if HLE_DB.skinBags==nil then HLE_DB.skinBags=true; end
