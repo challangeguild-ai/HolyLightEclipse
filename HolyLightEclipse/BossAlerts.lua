@@ -10,6 +10,9 @@ end
 function H.ResetBossAlerts()
     Hide(); lastId=H.Number(H.Table(AZS_BANNER).id);
 end
+function H.HideThreatNotice()
+    if activeKind=="threat" then Hide(); end
+end
 function H.BuildBossAlerts()
     local f=CreateFrame("Frame","HLEBossWarning",UIParent); f:SetWidth(330); f:SetHeight(66);
     f:SetPoint("TOP",UIParent,"TOP",0,-190); f:SetFrameStrata("HIGH"); f:EnableMouse(false);
