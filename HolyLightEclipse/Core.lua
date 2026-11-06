@@ -130,6 +130,8 @@ function H.Read()
     s.level = H.Number(r.lvl);
     s.time = H.Call("AZS_GetRunTime");
     s.zone = H.Text(z.zname, "AZEROTH SURVIVORS");
+    s.heroic = H.Number(z.heroic);
+    s.affixes = type(z.affixes)=="string" and z.affixes or "";
     s.kills, s.gold, s.enemies = H.Number(r.kills), H.Number(r.gold), H.Number(r.en);
     s.elites, s.lives = H.Number(r.el), H.Number(r.lives);
     s.cache = H.Number(r.chest);
