@@ -2,7 +2,7 @@
 ## Title: Holy Light x Eclipse
 ## Notes: Gold and violet survivor HUD. API-aware, no dependencies.
 ## Author: Rehard
-## Version: 0.9.7-preview
+## Version: 0.9.8-preview
 ## SavedVariables: HLE_DB
 Core.lua
 BossLootData.lua
