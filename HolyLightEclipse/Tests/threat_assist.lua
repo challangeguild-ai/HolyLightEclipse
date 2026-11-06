@@ -93,4 +93,17 @@ clock=81;s.player.hp=39;HLE.UpdateThreatAssist(s);
 assert(HLE.bossWarning:IsShown() and HLE.bossWarning.title.text=="DANGER - LOW HEALTH",
     "Custom low-HP threshold is not connected to alerts")
 assert(sounds==beforeMuted,"Muting danger sound did not work")
-print("HC danger warnings: actual HP only, user threshold/sound, no spam and reset passed");
+-- A confirmed cumulative ground-damage tick warrants an actionable area warning.
+-- A configured affix without actual damage does not.
+HLE_DB.threatAlerts=true;HLE_DB.threatSound=true;HLE_DB.threatCooldown=8;
+s.phase="playing";s.playerDead=false;s.coopDown=false;
+AZS_ZONE.run="runArea";AZS_TAKEN={{source="area",dmg=20}};
+clock=100;s.player.hp=100;HLE.UpdateThreatAssist(s);
+assert(not HLE.bossWarning:IsShown(),"Initial cumulative area damage was mistaken for a new tick");
+clock=101;s.player.hp=98;AZS_TAKEN[1].dmg=24;HLE.UpdateThreatAssist(s);
+assert(HLE.bossWarning:IsShown() and HLE.bossWarning.title.text=="MOVE OUT OF THE AREA",
+    "Confirmed ground damage did not produce the move warning");
+local areaSounds=sounds;
+clock=102;HLE.UpdateThreatAssist(s);
+assert(sounds==areaSounds,"Unchanged area damage produced a duplicate sound");
+print("HC danger warnings: verified HP and area damage, user settings, no spam and reset passed");

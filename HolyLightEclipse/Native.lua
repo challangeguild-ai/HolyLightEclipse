@@ -126,6 +126,10 @@ local function SuppressBeginNotice()
         if frame and type(frame.AddMessage) == "function" and not noticeHooks[name] then
             local original = frame.AddMessage;
             local wrapper = function(self, text, r, g, b, a, hold)
+                if type(text)=="string" then
+                    H.nativeCenterSeen=(H.nativeCenterSeen or 0)+1;
+                    H.nativeCenterLast=string.sub(text,1,120);
+                end
                 if HLE_DB.enabled and
                     ((HLE_DB.replaceNative and IsBeginNotice(text)) or
                     IsCurrentGameBanner(text)) then return; end

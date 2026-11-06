@@ -2,9 +2,9 @@
 -- Only the local hero's VERIFIED HP transitions are announced.
 -- No boss cast or affix is called "incoming" without an actual pre-hit API.
 local H=HLE;
-local lastRun,lastHP,lastMax,lastAlert,armed=nil,nil,nil,nil,false;
+local lastRun,lastHP,lastMax,lastArea,lastAlert,armed=nil,nil,nil,nil,nil,false;
 local function Reset()
-    lastRun,lastHP,lastMax,lastAlert,armed=nil,nil,nil,nil,false;
+    lastRun,lastHP,lastMax,lastArea,lastAlert,armed=nil,nil,nil,nil,nil,false;
     if H.HideThreatNotice then H.HideThreatNotice(); end
 end
 function H.ResetThreatAssist() Reset(); end
@@ -27,6 +27,21 @@ function H.UpdateThreatAssist(s)
     local now=H.Number(H.Call("GetTime"));
     if not now then lastHP=hp; lastMax=max; return; end
 
+    -- AZS_TAKEN is cumulative verified damage, not a forecast of a cast.
+    -- An increase in the "area" row proves a ground-effect hit reached the hero.
+    -- An empty published ledger means zero observed area damage.
+    -- Absent ledger data is NOT interpreted as zero.
+    local area=type(AZS_TAKEN)=="table" and 0 or nil;
+    local taken=H.Table(AZS_TAKEN);
+    for i=1,table.getn(taken) do
+        local row=H.Table(taken[i]);
+        if row.source=="area" and H.Number(row.dmg) and row.dmg>=0 then area=row.dmg; break; end
+    end
+    local areaHit=nil;
+    if area then
+        if lastArea and area>lastArea and s.phase=="playing" then areaHit=area-lastArea; end
+        lastArea=area;
+    end
     local fraction=math.max(0,math.min(1,hp/max));
     if not lastHP or not lastMax or max~=lastMax then
         -- A level-up or equipment change can alter maximum HP without a hit.
@@ -48,13 +63,17 @@ function H.UpdateThreatAssist(s)
     lastHP,lastMax=hp,max;
 
     if enteredLow then armed=false; end
-    if not enteredLow and not largeHit then return; end
+    if not enteredLow and not areaHit and not largeHit then return; end
     if lastAlert and now-lastAlert<(H.Number(HLE_DB.threatCooldown) or 8) then return; end
 
     local title,detail;
     if enteredLow then
         title=H.L and H.L("low_health") or "DANGER - LOW HEALTH";
         detail="HP "..H.Short(math.floor(fraction*100+0.5)).."% - "..(H.L and H.L("recover") or "RECOVER");
+    elseif areaHit then
+        -- Reactive cue: a verified area hit occurred. It is not a cast prediction.
+        title=H.L and H.L("area_warning") or "MOVE OUT OF THE AREA";
+        detail=H.Short(areaHit).." - "..(H.L and H.L("area_detail") or "AREA DAMAGE RECEIVED");
     else
         -- This hit has ALREADY happened; never misrepresent it as an incoming cast.
         title=H.L and H.L("confirmed_hit") or "HEAVY HIT RECEIVED";

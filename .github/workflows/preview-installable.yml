@@ -1,0 +1,61 @@
+name: Package installable preview ZIP
+on:
+  push:
+    branches:
+      - fix/observed-area-and-marks-20261106
+    paths:
+      - .github/workflows/preview-installable.yml
+      - HolyLightEclipse/**
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - name: Create installable addon ZIP with one root folder
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import zipfile
+          root = Path('HolyLightEclipse')
+          assert (root / 'HolyLightEclipse.toc').is_file()
+          assert (root / 'HolyLightEclipse.xml').is_file()
+          from pathlib import PurePosixPath
+          with zipfile.ZipFile('downloads/HolyLightEclipse-0.9.5.zip') as old:
+              original_names = set(old.namelist())
+          assert 'HolyLightEclipse/HolyLightEclipse.toc' in original_names
+          assert 'HolyLightEclipse/HolyLightEclipse.xml' in original_names
+          out = Path('downloads/HolyLightEclipse.zip')
+          out.parent.mkdir(parents=True, exist_ok=True)
+          with zipfile.ZipFile(out, 'w', zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
+              for src in sorted(root.rglob('*')):
+                  if src.is_file():
+                      archive.write(src, src.as_posix())
+          with zipfile.ZipFile(out) as archive:
+              names = archive.namelist()
+              assert all(n.startswith('HolyLightEclipse/') for n in names)
+              assert 'HolyLightEclipse/HolyLightEclipse.toc' in names
+              assert any(n.endswith('.tga') for n in names)
+              assert len([n for n in names if n.endswith('.lua')]) >= 20
+              assert 'HolyLightEclipse/HolyLightEclipse.xml' in names
+              assert b'## Version: 0.9.12-preview' in archive.read('HolyLightEclipse/HolyLightEclipse.toc')
+              assert not any(n.startswith('HolyLightEclipse/HolyLightEclipse/') for n in names)
+              for n in original_names:
+                  assert n in names, ('Missing original path', n)
+              assert archive.testzip() is None
+          print('Validated original addon folder names and all original release files.')
+          print('Created', out, out.stat().st_size, 'bytes')
+          PY
+      - name: Save ZIP to preview branch only
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add downloads/HolyLightEclipse.zip
+          if ! git diff --cached --quiet; then
+            git commit -m 'Package installable 0.9.12 preview addon'
+            git push origin HEAD:fix/observed-area-and-marks-20261106
+          fi
