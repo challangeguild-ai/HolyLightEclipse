@@ -18,6 +18,7 @@ function H.UpdateThreatAssist(s)
     local z=H.Table(AZS_ZONE);
     -- The same run id is the only safe boundary for a damage series.
     local id=type(z.run)=="string" and z.run or nil;
+    if not id or id=="" then Reset(); return; end
     if id~=lastRun then Reset(); lastRun=id; end
 
     local player=H.Table(s.player);
@@ -27,7 +28,9 @@ function H.UpdateThreatAssist(s)
     if not now then lastHP=hp; lastMax=max; return; end
 
     local fraction=math.max(0,math.min(1,hp/max));
-    if not lastHP or not lastMax then
+    if not lastHP or not lastMax or max~=lastMax then
+        -- A level-up or equipment change can alter maximum HP without a hit.
+        -- Rebaseline instead of interpreting this as incoming damage.
         lastHP,lastMax=hp,max; armed=fraction>=0.45; return;
     end
     if fraction>=0.45 then armed=true; end
