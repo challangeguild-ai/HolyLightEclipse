@@ -1,5 +1,5 @@
 -- Lua 5.0 subset: no _G, #, vararg forwarding or modern WoW APIs.
-HLE = { errors = {}, version = "0.9.10-preview", maxSkills = 32 };
+HLE = { errors = {}, version = "0.9.11-preview", maxSkills = 32 };
 local H = HLE;
 function H.Number(v)
     -- math.huge is absent in the user's client. Finite numbers subtract to zero;
