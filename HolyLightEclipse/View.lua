@@ -390,6 +390,11 @@ local function Command(msg)
     elseif msg=="bossalerts" then
         HLE_DB.bossAlerts=not HLE_DB.bossAlerts;
         if not HLE_DB.bossAlerts then H.StopBossAlerts(); end
+        H.TakeOver(H.Read());
+    elseif msg=="banners" then
+        HLE_DB.quietBanners=not HLE_DB.quietBanners;
+        H.TakeOver(H.Read());
+        Print(HLE_DB.quietBanners and "Quiet native banners: ON. Boss warning remains visible." or "Native banners restored.");
     elseif msg=="summary" then
         HLE_DB.showEndSummary=not HLE_DB.showEndSummary;
         if not HLE_DB.showEndSummary then H.ResetEndSummary();
@@ -443,7 +448,7 @@ local function Command(msg)
         local names={"AZS_GetPhase","AZS_GetMeter","AZS_SetHudShown","GetActionTexture","GetActionCooldown"};
         for i=1,table.getn(names) do Print(names[i]..": "..type(getglobal(names[i]))); end
         for name,err in pairs(H.errors) do Print(name..": "..err); end
-    else Print("/hle bag | bossalerts | skills | summary | summary show | rescue | damage | healing | meter self | meter party | meter rows 10 | meter width 320 | on | off | native | meter | meter run | meter boss | meter heal | effects | gear | loot | loot clear | plates | plates 1.2 | unlock | lock | reset | scale 0.8 | levels | status"); end
+    else Print("/hle bag | banners | bossalerts | skills | summary | summary show | rescue | damage | healing | meter self | meter party | meter rows 10 | meter width 320 | on | off | native | meter | meter run | meter boss | meter heal | effects | gear | loot | loot clear | plates | plates 1.2 | unlock | lock | reset | scale 0.8 | levels | status"); end
 end
 local function Initialize()
     if ready then return; end
@@ -460,6 +465,7 @@ local function Initialize()
     if HLE_DB.rescueArrow==nil then HLE_DB.rescueArrow=true; end
     if HLE_DB.skinBags==nil then HLE_DB.skinBags=true; end
     if HLE_DB.bossAlerts==nil then HLE_DB.bossAlerts=true; end
+    if HLE_DB.quietBanners==nil then HLE_DB.quietBanners=true; end
     if HLE_DB.showEndSummary==nil then HLE_DB.showEndSummary=true; end
     if HLE_DB.skillAlerts==nil then HLE_DB.skillAlerts=true; end
     if HLE_DB.showTimeline==nil then HLE_DB.showTimeline=true; end
