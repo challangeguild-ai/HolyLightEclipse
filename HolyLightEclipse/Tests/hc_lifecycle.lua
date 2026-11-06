@@ -63,6 +63,11 @@ assert(loadfile("View.lua"))()
 local s=HLE.Read()
 assert(s.active and s.coopDown and s.playerDead,"Co-op fallen hero lost active run")
 assert(s.time==515,"Latest server clock was discarded")
+AZS_GetMeterContext=function() return {runId="r123",asOfRunSeconds=519} end
+assert(HLE.Read().time==519,"Same-run meter ledger clock not used while down")
+AZS_GetMeterContext=function() return {runId="other-run",asOfRunSeconds=999} end
+assert(HLE.Read().time==515,"Unrelated run clock was applied to co-op HUD")
+AZS_GetMeterContext=nil
 assert(s.heroic==3 and s.affixes=="explosive")
 assert(table.getn(s.bosses)==1 and s.bosses[1].id==12,"Live boss lost after co-op death")
 local function Text(p,size,x,y,w,color)
