@@ -171,6 +171,8 @@ function H.Profile(mode,index)
     if mode=="save" then
         local p={}; for i=1,table.getn(preferenceKeys) do local key=preferenceKeys[i]; p[key]=HLE_DB[key]; end
         for i=1,table.getn(positions) do local key=positions[i]; local v=H.Table(HLE_DB[key]); if H.Number(v.x) and H.Number(v.y) then p[key]={x=v.x,y=v.y}; end end
+        p.collapsed={};
+        for key,v in pairs(H.Table(HLE_DB.collapsed)) do if type(v)=="boolean" then p.collapsed[key]=v; end end
         HLE_DB.profiles[index]=p; H.settingsStatus:SetText("Saved profile "..index); return true;
     elseif mode=="load" and type(HLE_DB.profiles[index])=="table" then
         local p=HLE_DB.profiles[index];
@@ -183,6 +185,11 @@ function H.Profile(mode,index)
         end
         for i=1,table.getn(positions) do local key=positions[i]; local v=H.Table(p[key]); HLE_DB[key]=nil;
             if H.Number(v.x) and H.Number(v.y) then HLE_DB[key]={x=v.x,y=v.y}; end
+        end
+        if type(p.collapsed)=="table" then
+            HLE_DB.collapsed={}; for key,v in pairs(p.collapsed) do
+                if type(v)=="boolean" then HLE_DB.collapsed[key]=v; end
+            end
         end
         if not HLE_DB.nameplates then H.RestoreNameplates(); end
         if not HLE_DB.replaceNative then H.RestoreNative(); end
