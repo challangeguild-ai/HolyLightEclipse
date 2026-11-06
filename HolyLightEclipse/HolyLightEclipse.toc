@@ -19,6 +19,7 @@ GroupMap.lua
 PartyRescue.lua
 BagSkin.lua
 BossAlerts.lua
+ThreatAssist.lua
 EndSummary.lua
 Collapse.lua
 Timeline.lua
