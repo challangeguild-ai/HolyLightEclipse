@@ -68,6 +68,40 @@ function H.SavePanelPosition(f)
     local ratio=UIParent:GetEffectiveScale()/f:GetEffectiveScale();
     HLE_DB[f.key]={x=x-ux*ratio,y=y-uy*ratio}; Position(f);
 end
+-- Scale controls preserve every panel's center in real screen coordinates.
+-- Previously /hle scale cleared saved positions; never reset them on resizing.
+function H.ApplyScaleKeepingPositions(newScale)
+    if not H.Number(newScale) or newScale<0.6 or newScale>1.4 then return false; end
+    local saved={};
+    if UIParent and UIParent.GetCenter and UIParent.GetEffectiveScale then
+        local ux,uy=UIParent:GetCenter();
+        local up=H.Number(UIParent:GetEffectiveScale());
+        if ux and uy and up then
+            for i=1,table.getn(panels) do
+                local frame=panels[i];
+                if frame.GetCenter and frame.GetEffectiveScale then
+                    local cx,cy=frame:GetCenter();
+                    local factor=H.Number(frame:GetEffectiveScale());
+                    if cx and cy and factor then
+                        saved[frame.key]={x=cx*factor-ux*up,y=cy*factor-uy*up};
+                    end
+                end
+            end
+        end
+    end
+    HLE_DB.scale=newScale;
+    for i=1,table.getn(panels) do
+        local frame=panels[i];
+        frame:SetScale(newScale);
+        local old=saved[frame.key];
+        local factor=frame.GetEffectiveScale and H.Number(frame:GetEffectiveScale());
+        if old and factor and factor>0 then
+            HLE_DB[frame.key]={x=old.x/factor,y=old.y/factor};
+        end
+    end
+    H.ApplyLayout();
+    return true;
+end
 local function Panel(name,key,w,h,anchor,offset,xoffset)
     local f=CreateFrame("Frame",name,UIParent); f:SetWidth(w); f:SetHeight(h); f:SetFrameStrata("MEDIUM");
     f.key,f.anchor,f.offset,f.xoffset=key,anchor,offset,xoffset;
@@ -227,7 +261,9 @@ local function Build()
     H.BuildTracking(Text,Texture,Panel);
     H.gear=Panel("HLEEquipment","gear",240,136,"LEFT",-35,24); H.BuildEquipment(H.gear);
     H.BuildExtras(Text,Texture,Panel);
-    H.BuildGroupMap(Text,Texture,Bar,Panel); H.BuildRescue(); H.BuildBossLoot(Text,Texture); H.BuildTimeline(Text,Texture);
+    H.BuildGroupMap(Text,Texture,Bar,Panel);
+    H.BuildMinimapLauncher();
+    H.BuildRescue(); H.BuildBossLoot(Text,Texture); H.BuildTimeline(Text,Texture);
     H.loot=Panel("HLELoot","loot",300,216,"TOP",-295,0); H.BuildLoot(H.loot);
     H.BuildBossAlerts(); H.BuildEndSummary();
     H.BuildCollapsePanels(panels);
@@ -333,10 +369,10 @@ function H.Render(s)
     H.zone:SetText(H.Text(s.zone,s.phase=="ready" and "Move to begin" or "")..
         (s.active and s.heroic and s.heroic>0 and ("   /   HC "..H.Short(s.heroic)) or ""));
     H.hcAffixes:SetText(s.active and AffixLabel(s.affixes) or "");
-    H.killStats:SetText(s.active and ("KILLS "..H.MoneyShort(s.kills)) or "");
-    H.stats:SetText(s.active and ("GOLD "..H.MoneyShort(s.gold).."   CACHE "..H.MoneyShort(s.cache)) or "");
+    H.killStats:SetText(s.active and (H.L("kills").." "..H.MoneyShort(s.kills)) or "");
+    H.stats:SetText(s.active and (H.L("gold").." "..H.MoneyShort(s.gold).."   "..H.L("cache").." "..H.MoneyShort(s.cache)) or "");
     local function Full(v) return H.Number(v) and string.format("%.0f",v) or "--"; end
-    H.fullStats=s.active and ("KILLS "..Full(s.kills).."\nGOLD "..Full(s.gold).."\nCACHE "..Full(s.cache)) or nil;
+    H.fullStats=s.active and (H.L("kills").." "..Full(s.kills).."\n"..H.L("gold").." "..Full(s.gold).."\n"..H.L("cache").." "..Full(s.cache)) or nil;
     local nextText="";
     -- Upcoming bosses are shown only in the integrated timeline.
     H.nextBoss:SetText(nextText..(s.stored and s.stored>0 and ("   +"..H.Short(s.stored).." levels: /hle levels") or ""));
@@ -356,7 +392,7 @@ function H.Render(s)
             bar.boss=b; bar:Show(); bar:SetValue(math.max(0,math.min(1,b.hp/b.hpm)));
             local ratio=math.floor(100*b.hp/b.hpm+0.5);
             bar.label:SetText(H.Text(b.name).."  "..H.Short(b.hp).."/"..H.Short(b.hpm).."  "..ratio.."%"..
-                (b.enraged and "  ENRAGED" or ""));
+                (b.enraged and ("  "..H.L("enraged")) or ""));
             if b.enraged then bar:SetStatusBarColor(0.84,0.13,0.17);
             else bar:SetStatusBarColor(unpack(VIOLET)); end
         else bar.boss=nil; bar:Hide(); end
@@ -469,9 +505,19 @@ local function Command(msg)
         if HLE_DB.rescueArrow then H.UpdateRescue(H.Read()); else H.ResetRescue(); end
     elseif msg=="timeline" then HLE_DB.showTimeline=not HLE_DB.showTimeline; H.Render(H.Read());
     elseif msg=="minimap" then HLE_DB.skinMinimap=not HLE_DB.skinMinimap; H.UpdateMinimap();
+    elseif msg=="launcher" then
+        HLE_DB.showLauncher=not HLE_DB.showLauncher; H.UpdateMinimapLauncher();
+        if HLE_DB.showLauncher then Print(H.L("open_settings")); end
+    elseif string.sub(msg,1,5)=="lang " then
+        local lang=string.sub(msg,6);
+        if lang=="zhcn" or lang=="zh" then lang="zhCN"; end
+        if not H.SetLanguage(lang) then Print("Languages: en, hu, de, zhCN"); end
+    elseif msg=="threatsound" then
+        HLE_DB.threatSound=not HLE_DB.threatSound;
+        H.ResetThreatAssist();
     elseif msg=="navigation" then HLE_DB.showNavigation=not HLE_DB.showNavigation; H.UpdateExtras(H.Read(),1);
     elseif msg=="journal" then HLE_DB.showJournal=not HLE_DB.showJournal; H.UpdateExtras(H.Read(),1);
-    elseif msg=="settings" or msg=="" then H.RefreshSettings(); if H.settings:IsShown() then H.settings:Hide(); else H.settings:Show(); end
+    elseif msg=="settings" or msg=="" then H.ToggleSettings();
     elseif string.find(msg,"^profile save [123]$") then H.Profile("save",tonumber(string.sub(msg,-1)));
     elseif string.find(msg,"^profile load [123]$") then H.Profile("load",tonumber(string.sub(msg,-1)));
     elseif msg=="gear" then HLE_DB.showGear=not HLE_DB.showGear; Visibility();
@@ -495,12 +541,7 @@ local function Command(msg)
         for i=1,table.getn(panels) do Position(panels[i]); end
     elseif string.sub(msg,1,6)=="scale " then
         local n=tonumber(string.sub(msg,7));
-        if n and n>=0.6 and n<=1.4 then
-            HLE_DB.scale=n; HLE_DB.main,HLE_DB.top,HLE_DB.meter=nil,nil,nil;
-            HLE_DB.gear=nil;
-            HLE_DB.loot=nil; HLE_DB.effects=nil; HLE_DB.navigation=nil; HLE_DB.jewelry=nil; HLE_DB.party=nil;
-            for i=1,table.getn(panels) do Position(panels[i]); end
-        else Print("Scale: 0.6 to 1.4"); end
+        if not H.ApplyScaleKeepingPositions(n) then Print("Scale: 0.6 to 1.4"); end
     elseif msg=="levels" then
         local s=H.Read(); if s.active and s.stored and s.stored>0 then H.Call("AZS_OpenStoredLevels"); end
     elseif msg=="status" then
@@ -512,7 +553,7 @@ local function Command(msg)
         local names={"AZS_GetPhase","AZS_GetMeter","AZS_SetHudShown","GetActionTexture","GetActionCooldown"};
         for i=1,table.getn(names) do Print(names[i]..": "..type(getglobal(names[i]))); end
         for name,err in pairs(H.errors) do Print(name..": "..err); end
-    else Print("/hle bag | banners | threats | bossalerts | skills | summary | summary show | rescue | damage | healing | meter self | meter party | meter rows 10 | meter width 320 | on | off | native | meter | meter run | meter boss | meter heal | effects | gear | loot | loot clear | plates | plates 1.2 | unlock | lock | reset | scale 0.8 | levels | status"); end
+    else Print("/hle settings | launcher | lang en/hu/de/zhCN | threats | threatsound | bossalerts | banners | bag | skills | summary | summary show | rescue | damage | healing | meter self | meter party | meter rows 10 | meter width 320 | on | off | native | meter | meter run | meter boss | meter heal | effects | gear | loot | loot clear | plates | plates 1.2 | unlock | lock | reset | scale 0.8 | levels | status"); end
 end
 local function Initialize()
     if ready then return; end
@@ -531,6 +572,11 @@ local function Initialize()
     if HLE_DB.skinBags==nil then HLE_DB.skinBags=true; end
     if HLE_DB.bossAlerts==nil then HLE_DB.bossAlerts=true; end
     if HLE_DB.threatAlerts==nil then HLE_DB.threatAlerts=true; end
+    if HLE_DB.threatSound==nil then HLE_DB.threatSound=true; end
+    HLE_DB.threatLowPct=math.max(20,math.min(40,H.Number(HLE_DB.threatLowPct) or 30));
+    HLE_DB.threatCooldown=math.max(6,math.min(16,H.Number(HLE_DB.threatCooldown) or 8));
+    if HLE_DB.showLauncher==nil then HLE_DB.showLauncher=true; end
+    if not HLE_DB.language or (HLE_DB.language~="en" and HLE_DB.language~="hu" and HLE_DB.language~="de" and HLE_DB.language~="zhCN") then HLE_DB.language="en"; end
     if HLE_DB.quietBanners==nil then HLE_DB.quietBanners=true; end
     if HLE_DB.showEndSummary==nil then HLE_DB.showEndSummary=true; end
     if HLE_DB.skillAlerts==nil then HLE_DB.skillAlerts=true; end
