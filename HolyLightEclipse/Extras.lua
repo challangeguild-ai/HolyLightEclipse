@@ -136,34 +136,10 @@ function H.BuildExtras(Text,Texture,Panel)
     Click(H.jewelry,Text,Texture,10,-239,72,"RUN/SEEN",function() H.journalHistory=not H.journalHistory; H.journalPage=0; H.UpdateExtras(H.Read(),1); end);
     Click(H.jewelry,Text,Texture,87,-239,72,"< PAGE",function() H.journalPage=math.max(0,(H.journalPage or 0)-1); H.UpdateExtras(H.Read(),1); end);
     Click(H.jewelry,Text,Texture,164,-239,86,"PAGE >",function() H.journalPage=(H.journalPage or 0)+1; H.UpdateExtras(H.Read(),1); end);
-    H.settings=CreateFrame("Frame","HLESettings",UIParent); H.settings:SetWidth(340); H.settings:SetHeight(650); H.settings:SetFrameStrata("DIALOG");
-    H.settings:SetPoint("CENTER",UIParent,"CENTER",0,0); H.settings:SetMovable(true); H.settings:EnableMouse(true); H.settings:RegisterForDrag("LeftButton");
-    H.settings:SetScript("OnDragStart",function() this:StartMoving(); end); H.settings:SetScript("OnDragStop",function() this:StopMovingOrSizing(); end);
-    local sbg=Texture(H.settings,MEDIA.."White.tga",0,0,340,650); sbg:SetVertexColor(0.045,0.025,0.065,0.98);
-    Text(H.settings,15,15,-12,300,{0.95,0.74,0.35}):SetText("HUD SETTINGS");
-    H.settingButtons={};
-    local controls={{"showMeter","Damage meter","meter"},{"showGear","Equipment","gear"},{"showLoot","Loot notices","loot"},
-        {"nameplates","Nameplates","plates"},{"showEffects","Buffs / timers","effects"},{"showNavigation","Elite / guardian list","navigation"},{"showJournal","Jewelry / diary","journal"},{"showParty","Party frames","party"},{"showTimeline","Boss timeline","timeline"},{"skinMinimap","Minimap skin","minimap"},{"rescueArrow","Rescue guidance","rescue"},{"skinBags","Inventory skin","bag"},{"bossAlerts","Boss warning","bossalerts"},{"showEndSummary","Run summary","summary"},{"skillAlerts","Skill ready cues","skills"},{"quietBanners","Quiet center notices","banners"},{"threatAlerts","Verified danger cues","threats"}};
-    for i=1,table.getn(controls) do
-        local spec=controls[i]; local command=spec[3];
-        local button=Click(H.settings,Text,Texture,15,-40-(i-1)*27,310,spec[2],function() SlashCmdList.HOLYLIGHTECLIPSE(command); H.RefreshSettings(); end);
-        button.key,button.title=spec[1],spec[2]; H.settingButtons[i]=button;
-    end
-    Click(H.settings,Text,Texture,15,-512,95,"MOVE / LOCK",function() SlashCmdList.HOLYLIGHTECLIPSE(H.unlocked and "lock" or "unlock"); end);
-    Click(H.settings,Text,Texture,120,-512,95,"SCALE -",function() HLE_DB.scale=math.max(0.6,HLE_DB.scale-0.05); H.ApplyLayout(); end);
-    Click(H.settings,Text,Texture,225,-512,100,"SCALE +",function() HLE_DB.scale=math.min(1.4,HLE_DB.scale+0.05); H.ApplyLayout(); end);
-    for i=1,3 do local slot=i;
-        Click(H.settings,Text,Texture,15+(i-1)*105,-545,100,"SAVE "..i,function() H.Profile("save",slot); end);
-        Click(H.settings,Text,Texture,15+(i-1)*105,-572,100,"LOAD "..i,function() H.Profile("load",slot); end);
-    end
-    H.settingsStatus=Text(H.settings,9,15,-607,220,{0.8,0.7,0.9}); H.settingsStatus:SetText("Profiles store layout and settings only.");
-    Click(H.settings,Text,Texture,245,-612,80,"CLOSE",function() H.settings:Hide(); end);
-    H.settings:Hide();
+    -- One beginner-friendly settings center replaces the old 17-row toggle list.
+    if H.BuildSettingsUI then H.BuildSettingsUI(); end
 end
-function H.RefreshSettings()
-    for i=1,table.getn(H.settingButtons) do local b=H.settingButtons[i]; b.label:SetText((HLE_DB[b.key] and "[ON] " or "[OFF] ")..b.title); end
-end
-local preferenceKeys={"scale","plateScale","showMeter","showGear","showLoot","nameplates","showEffects","showNavigation","showJournal","replaceNative","meterMode","meterScope","showParty","showTimeline","skinMinimap","rescueArrow","skinBags","bossAlerts","showEndSummary","skillAlerts","quietBanners","threatAlerts"};
+local preferenceKeys={"scale","plateScale","showMeter","showGear","showLoot","nameplates","showEffects","showNavigation","showJournal","replaceNative","meterMode","meterScope","showParty","showTimeline","skinMinimap","rescueArrow","skinBags","bossAlerts","showEndSummary","skillAlerts","quietBanners","threatAlerts","threatSound","threatLowPct","threatCooldown"};
 local positions={"main","top","meter","gear","loot","effects","navigation","jewelry","party"};
 function H.Profile(mode,index)
     if index~=1 and index~=2 and index~=3 then return false; end
@@ -173,13 +149,15 @@ function H.Profile(mode,index)
         for i=1,table.getn(positions) do local key=positions[i]; local v=H.Table(HLE_DB[key]); if H.Number(v.x) and H.Number(v.y) then p[key]={x=v.x,y=v.y}; end end
         p.collapsed={};
         for key,v in pairs(H.Table(HLE_DB.collapsed)) do if type(v)=="boolean" then p.collapsed[key]=v; end end
-        HLE_DB.profiles[index]=p; H.settingsStatus:SetText("Saved profile "..index); return true;
+        HLE_DB.profiles[index]=p; H.settingsStatus:SetText(H.L("saved").." "..index); return true;
     elseif mode=="load" and type(HLE_DB.profiles[index])=="table" then
         local p=HLE_DB.profiles[index];
         for i=1,table.getn(preferenceKeys) do local key=preferenceKeys[i]; local v=p[key];
             if type(v)=="boolean" and key~="scale" and key~="plateScale" and key~="meterMode" then HLE_DB[key]=v;
             elseif key=="scale" and H.Number(v) then HLE_DB.scale=math.max(0.6,math.min(1.4,v));
             elseif key=="plateScale" and H.Number(v) then HLE_DB.plateScale=math.max(0.6,math.min(1.8,v));
+            elseif key=="threatLowPct" and H.Number(v) then HLE_DB.threatLowPct=math.max(20,math.min(40,v));
+            elseif key=="threatCooldown" and H.Number(v) then HLE_DB.threatCooldown=math.max(6,math.min(16,v));
             elseif key=="meterMode" and (v=="run" or v=="boss" or v=="heal") then HLE_DB[key]=v;
             elseif key=="meterScope" and (v=="self" or v=="party") then HLE_DB[key]=v; end
         end
@@ -193,9 +171,9 @@ function H.Profile(mode,index)
         end
         if not HLE_DB.nameplates then H.RestoreNameplates(); end
         if not HLE_DB.replaceNative then H.RestoreNative(); end
-        H.meterPage=0; H.ResetMeterCache(); H.ApplyLayout(); H.RefreshSettings(); H.settingsStatus:SetText("Loaded profile "..index); return true;
+        H.meterPage=0; H.ResetMeterCache(); H.ApplyLayout(); H.RefreshSettings(); H.settingsStatus:SetText(H.L("loaded").." "..index); return true;
     end
-    H.settingsStatus:SetText("Profile "..index.." is empty"); return false;
+    H.settingsStatus:SetText(H.L("profile_empty")); return false;
 end
 function H.ClearExtras()
     if H.navigation then H.navigation:Hide(); H.navigationText:SetText(""); end
