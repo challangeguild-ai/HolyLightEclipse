@@ -20,6 +20,7 @@ PartyRescue.lua
 BagSkin.lua
 BossAlerts.lua
 EndSummary.lua
+Collapse.lua
 Timeline.lua
 CombatText.lua
 View.lua
