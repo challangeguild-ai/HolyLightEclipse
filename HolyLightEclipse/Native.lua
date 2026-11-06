@@ -166,7 +166,8 @@ function H.RestoreNative(keepBosses,keepBanners)
     noticeHooks = {};
     local backup = H.Table(HLE_DB.nativeBackup);
     for part, shown in pairs(backup) do
-        if type(AZS_SetHudShown) == "function" and not (keepBosses and part=="bosses") and not (keepBanners and part=="banners") then
+        if (type(AZS_SetHudShown)=="function" or (part=="banners" and type(SetCVar)=="function")) and
+            not (keepBosses and part=="bosses") and not (keepBanners and part=="banners") then
             local ok;
             if part=="banners" then ok=SetBannersVisible(shown);
             else ok=pcall(AZS_SetHudShown,part,shown); end
