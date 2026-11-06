@@ -136,34 +136,34 @@ function H.BuildExtras(Text,Texture,Panel)
     Click(H.jewelry,Text,Texture,10,-239,72,"RUN/SEEN",function() H.journalHistory=not H.journalHistory; H.journalPage=0; H.UpdateExtras(H.Read(),1); end);
     Click(H.jewelry,Text,Texture,87,-239,72,"< PAGE",function() H.journalPage=math.max(0,(H.journalPage or 0)-1); H.UpdateExtras(H.Read(),1); end);
     Click(H.jewelry,Text,Texture,164,-239,86,"PAGE >",function() H.journalPage=(H.journalPage or 0)+1; H.UpdateExtras(H.Read(),1); end);
-    H.settings=CreateFrame("Frame","HLESettings",UIParent); H.settings:SetWidth(340); H.settings:SetHeight(620); H.settings:SetFrameStrata("DIALOG");
+    H.settings=CreateFrame("Frame","HLESettings",UIParent); H.settings:SetWidth(340); H.settings:SetHeight(650); H.settings:SetFrameStrata("DIALOG");
     H.settings:SetPoint("CENTER",UIParent,"CENTER",0,0); H.settings:SetMovable(true); H.settings:EnableMouse(true); H.settings:RegisterForDrag("LeftButton");
     H.settings:SetScript("OnDragStart",function() this:StartMoving(); end); H.settings:SetScript("OnDragStop",function() this:StopMovingOrSizing(); end);
-    local sbg=Texture(H.settings,MEDIA.."White.tga",0,0,340,620); sbg:SetVertexColor(0.045,0.025,0.065,0.98);
+    local sbg=Texture(H.settings,MEDIA.."White.tga",0,0,340,650); sbg:SetVertexColor(0.045,0.025,0.065,0.98);
     Text(H.settings,15,15,-12,300,{0.95,0.74,0.35}):SetText("HUD SETTINGS");
     H.settingButtons={};
     local controls={{"showMeter","Damage meter","meter"},{"showGear","Equipment","gear"},{"showLoot","Loot notices","loot"},
-        {"nameplates","Nameplates","plates"},{"showEffects","Buffs / timers","effects"},{"showNavigation","Elite / guardian list","navigation"},{"showJournal","Jewelry / diary","journal"},{"showParty","Party frames","party"},{"showTimeline","Boss timeline","timeline"},{"skinMinimap","Minimap skin","minimap"},{"rescueArrow","Rescue guidance","rescue"},{"skinBags","Inventory skin","bag"},{"bossAlerts","Boss warning","bossalerts"},{"showEndSummary","Run summary","summary"},{"skillAlerts","Skill ready cues","skills"},{"quietBanners","Quiet center notices","banners"}};
+        {"nameplates","Nameplates","plates"},{"showEffects","Buffs / timers","effects"},{"showNavigation","Elite / guardian list","navigation"},{"showJournal","Jewelry / diary","journal"},{"showParty","Party frames","party"},{"showTimeline","Boss timeline","timeline"},{"skinMinimap","Minimap skin","minimap"},{"rescueArrow","Rescue guidance","rescue"},{"skinBags","Inventory skin","bag"},{"bossAlerts","Boss warning","bossalerts"},{"showEndSummary","Run summary","summary"},{"skillAlerts","Skill ready cues","skills"},{"quietBanners","Quiet center notices","banners"},{"threatAlerts","Verified danger cues","threats"}};
     for i=1,table.getn(controls) do
         local spec=controls[i]; local command=spec[3];
         local button=Click(H.settings,Text,Texture,15,-40-(i-1)*27,310,spec[2],function() SlashCmdList.HOLYLIGHTECLIPSE(command); H.RefreshSettings(); end);
         button.key,button.title=spec[1],spec[2]; H.settingButtons[i]=button;
     end
-    Click(H.settings,Text,Texture,15,-482,95,"MOVE / LOCK",function() SlashCmdList.HOLYLIGHTECLIPSE(H.unlocked and "lock" or "unlock"); end);
-    Click(H.settings,Text,Texture,120,-482,95,"SCALE -",function() HLE_DB.scale=math.max(0.6,HLE_DB.scale-0.05); H.ApplyLayout(); end);
-    Click(H.settings,Text,Texture,225,-482,100,"SCALE +",function() HLE_DB.scale=math.min(1.4,HLE_DB.scale+0.05); H.ApplyLayout(); end);
+    Click(H.settings,Text,Texture,15,-512,95,"MOVE / LOCK",function() SlashCmdList.HOLYLIGHTECLIPSE(H.unlocked and "lock" or "unlock"); end);
+    Click(H.settings,Text,Texture,120,-512,95,"SCALE -",function() HLE_DB.scale=math.max(0.6,HLE_DB.scale-0.05); H.ApplyLayout(); end);
+    Click(H.settings,Text,Texture,225,-512,100,"SCALE +",function() HLE_DB.scale=math.min(1.4,HLE_DB.scale+0.05); H.ApplyLayout(); end);
     for i=1,3 do local slot=i;
-        Click(H.settings,Text,Texture,15+(i-1)*105,-515,100,"SAVE "..i,function() H.Profile("save",slot); end);
-        Click(H.settings,Text,Texture,15+(i-1)*105,-542,100,"LOAD "..i,function() H.Profile("load",slot); end);
+        Click(H.settings,Text,Texture,15+(i-1)*105,-545,100,"SAVE "..i,function() H.Profile("save",slot); end);
+        Click(H.settings,Text,Texture,15+(i-1)*105,-572,100,"LOAD "..i,function() H.Profile("load",slot); end);
     end
-    H.settingsStatus=Text(H.settings,9,15,-577,220,{0.8,0.7,0.9}); H.settingsStatus:SetText("Profiles store layout and settings only.");
-    Click(H.settings,Text,Texture,245,-582,80,"CLOSE",function() H.settings:Hide(); end);
+    H.settingsStatus=Text(H.settings,9,15,-607,220,{0.8,0.7,0.9}); H.settingsStatus:SetText("Profiles store layout and settings only.");
+    Click(H.settings,Text,Texture,245,-612,80,"CLOSE",function() H.settings:Hide(); end);
     H.settings:Hide();
 end
 function H.RefreshSettings()
     for i=1,table.getn(H.settingButtons) do local b=H.settingButtons[i]; b.label:SetText((HLE_DB[b.key] and "[ON] " or "[OFF] ")..b.title); end
 end
-local preferenceKeys={"scale","plateScale","showMeter","showGear","showLoot","nameplates","showEffects","showNavigation","showJournal","replaceNative","meterMode","meterScope","showParty","showTimeline","skinMinimap","rescueArrow","skinBags","bossAlerts","showEndSummary","skillAlerts","quietBanners"};
+local preferenceKeys={"scale","plateScale","showMeter","showGear","showLoot","nameplates","showEffects","showNavigation","showJournal","replaceNative","meterMode","meterScope","showParty","showTimeline","skinMinimap","rescueArrow","skinBags","bossAlerts","showEndSummary","skillAlerts","quietBanners","threatAlerts"};
 local positions={"main","top","meter","gear","loot","effects","navigation","jewelry","party"};
 function H.Profile(mode,index)
     if index~=1 and index~=2 and index~=3 then return false; end
