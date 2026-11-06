@@ -36,8 +36,11 @@ local function RenderBoss(banner)
     if not H.bossWarning or not HLE_DB or HLE_DB.bossAlerts==false then return; end
     local now=H.Number(H.Call("GetTime"));
     activeKind="boss"; currentBoss=banner;
-    H.bossWarning.title:SetText(banner.kind=="finalboss" and "FINAL BOSS" or "BOSS INCOMING");
+    H.bossWarning.title:SetText(banner.kind=="finalboss" and
+        (H.L and H.L("final_boss") or "FINAL BOSS") or
+        (H.L and H.L("incoming_boss") or "BOSS INCOMING"));
     H.bossWarning.name:SetText(H.Text(banner.name,H.Text(banner.text,"Encounter")));
+    if H.LocalizedFont then H.LocalizedFont(H.bossWarning.title,16); H.LocalizedFont(H.bossWarning.name,12); end
     untilTime=now and now+2.4 or nil;
     H.bossWarning:SetAlpha(1); H.bossWarning:Show();
 end
@@ -52,6 +55,7 @@ function H.ShowThreatNotice(title,detail,duration)
         pendingBoss=currentBoss;
     end
     H.bossWarning.title:SetText(H.Text(title,"DANGER"));
+    if H.LocalizedFont then H.LocalizedFont(H.bossWarning.title,16); H.LocalizedFont(H.bossWarning.name,12); end
     H.bossWarning.name:SetText(H.Text(detail,""));
     activeKind="threat"; untilTime=now+(H.Number(duration) or 2.5);
     H.bossWarning:SetAlpha(1); H.bossWarning:Show();
