@@ -3,12 +3,14 @@
 local H=HLE;
 local WHITE="Interface\\AddOns\\HolyLightEclipse\\Media\\White.tga";
 local registered,lastId,started,untilTime,activeKind=false,nil,false,nil,nil;
+local pendingBoss,currentBoss=nil,nil;
 local function Hide()
     if H.bossWarning then H.bossWarning:Hide(); end
     untilTime=nil; activeKind=nil;
 end
 function H.ResetBossAlerts()
-    Hide(); lastId=H.Number(H.Table(AZS_BANNER).id);
+    Hide(); pendingBoss=nil; currentBoss=nil;
+    lastId=H.Number(H.Table(AZS_BANNER).id);
 end
 function H.HideThreatNotice()
     if activeKind=="threat" then Hide(); end
@@ -30,6 +32,15 @@ function H.BuildBossAlerts()
     f.name:SetJustifyH("CENTER"); f.name:SetTextColor(1,0.35,0.38);
     f:Hide(); H.bossWarning=f;
 end
+local function RenderBoss(banner)
+    if not H.bossWarning or not HLE_DB or HLE_DB.bossAlerts==false then return; end
+    local now=H.Number(H.Call("GetTime"));
+    activeKind="boss"; currentBoss=banner;
+    H.bossWarning.title:SetText(banner.kind=="finalboss" and "FINAL BOSS" or "BOSS INCOMING");
+    H.bossWarning.name:SetText(H.Text(banner.name,H.Text(banner.text,"Encounter")));
+    untilTime=now and now+2.4 or nil;
+    H.bossWarning:SetAlpha(1); H.bossWarning:Show();
+end
 -- Reuse the boss warning's CENTER location rather than stacking alert overlays.
 -- Threats take priority until their short duration ends.
 function H.ShowThreatNotice(title,detail,duration)
@@ -37,6 +48,9 @@ function H.ShowThreatNotice(title,detail,duration)
         H.suspended or not H.bossWarning then return false; end
     local now=H.Number(H.Call("GetTime"));
     if not now then return false; end
+    if activeKind=="boss" and untilTime and now<untilTime and currentBoss then
+        pendingBoss=currentBoss;
+    end
     H.bossWarning.title:SetText(H.Text(title,"DANGER"));
     H.bossWarning.name:SetText(H.Text(detail,""));
     activeKind="threat"; untilTime=now+(H.Number(duration) or 2.5);
@@ -52,12 +66,10 @@ function H.BossBannerNotice(banner)
     end
     if not H.bossWarning then return; end
     local now=H.Number(H.Call("GetTime"));
-    if activeKind=="threat" and now and untilTime and now<untilTime then return; end
-    activeKind="boss";
-    H.bossWarning.title:SetText(banner.kind=="finalboss" and "FINAL BOSS" or "BOSS INCOMING");
-    H.bossWarning.name:SetText(H.Text(banner.name,H.Text(banner.text,"Encounter")));
-    untilTime=now and now+2.4 or nil;
-    H.bossWarning:SetAlpha(1); H.bossWarning:Show();
+    if activeKind=="threat" and now and untilTime and now<untilTime then
+        pendingBoss=banner; return;
+    end
+    pendingBoss=nil; RenderBoss(banner);
 end
 function H.StartBossAlerts()
     if registered then return; end
@@ -84,7 +96,7 @@ function H.UpdateBossAlerts(s)
         if registered and type(AZS_UnregisterBannerHandler)=="function" then
             pcall(AZS_UnregisterBannerHandler,H.BossBannerNotice);
         end
-        registered=false; started=false;
+        registered=false; started=false; pendingBoss=nil;
     else
         if not started then H.StartBossAlerts(); end
         if not registered then
@@ -97,5 +109,10 @@ function H.UpdateBossAlerts(s)
         if not now or not untilTime or now>=untilTime then Hide();
         elseif untilTime-now<0.4 then H.bossWarning:SetAlpha((untilTime-now)/0.4);
         else H.bossWarning:SetAlpha(1); end
+    end
+    if HLE_DB.bossAlerts~=false and not H.bossWarning:IsShown() and pendingBoss then
+        -- A genuine boss arrival may have occurred during a higher-priority
+        -- low-HP warning. Display it afterwards, never on top of the danger.
+        local boss=pendingBoss; pendingBoss=nil; RenderBoss(boss);
     end
 end
