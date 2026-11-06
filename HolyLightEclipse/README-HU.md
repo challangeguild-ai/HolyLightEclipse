@@ -270,3 +270,17 @@ Zárd be a játékot; készíts másolatot az `Interface/AddOns/HolyLightEclipse
 6. Halál/győzelem/kilépés utáni összesítő; bezárás és újranyitás.
 
 A fenti funkciók kliensoldali működése még nem volt tényleges játékon belül ellenőrizhető.
+
+## 0.9.8-preview – csapattársak bal oldali mentési panelje és csendes értesítések
+
+A jelenlegi arany–lila témát megtartottuk. A fő HUD és a középre igazított bossjelzés elhelyezése változatlan.
+
+- Ha co-opban valaki elesik, a **bal oldal felső felében** megjelenő kis panelben külön sorban, **pirossal** jelenik meg minden elesett csapattárs neve (legfeljebb négy játékos). Nem csak egy összesített „+N” feliratot mutat.
+- A panel alján az iránynyíl továbbra is a legközelebbi, pontosan bemérhető újraélesztési pontra mutat. Ha a játék nem szolgáltat koordinátát, a panel ezt jelzi, de nem talál ki irányt.
+- Az addon az elesett játékosról többé nem ír külön felugró szöveget a képernyő közepére; a chat- és egyszeri hangjelzés megmarad.
+- **Piros bossjelzés**: a saját „BOSS INCOMING” / „FINAL BOSS” cím és a boss neve piros, a korábbi középre igazított panelen.
+- Az alapból aktív **Quiet center notices** beállítás a játék **natív banner-értesítéseit** elrejti, hogy azok ne áraszthassák el a képernyő közepét. Ez nem csak a csapattársakhoz kapcsolódó, hanem például az achievement- és egyéb natív bannerüzeneteket is érinti. A bossfeliratot az addon saját eseménykezelője biztosítja.
+- Visszakapcsolás: `/hle banners`. Ugyanez a beállítás a `/hle settings` menüben is elérhető, és a profilokkal együtt menthető. Az addon kikapcsolásakor a játék natív értesítéseinek előző láthatósági állapota visszaáll.
+- Ha a saját bossfigyelmeztetést kikapcsolod (`/hle bossalerts`), a játék natív bannerjei visszatérnek, hogy a bossérkezés ne maradjon jelzés nélkül.
+
+A javítás automatikus Lua-szintaxis- és szimulált működésvizsgálaton megy keresztül, de élő co-op játékteszt továbbra is szükséges.
