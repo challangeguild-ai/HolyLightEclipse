@@ -69,4 +69,9 @@ HLE.ToggleEndSummary();assert(not HLE.endSummary:IsShown());
 HLE.UpdateEndSummary({phase='dead'});assert(not HLE.endSummary:IsShown(),'Closed summary resurfaced');
 HLE.ToggleEndSummary();assert(HLE.endSummary:IsShown());
 HLE.ResetEndSummary();assert(not HLE.endSummary:IsShown());
+AZS_GetRunSummary=function() return {result='left',t=40,lvl=2,kills=3} end
+HLE.UpdateEndSummary({phase='ready'});assert(HLE.endSummary:IsShown(),'Left run summary missing');
+HLE.ResetEndSummary();
+AZS_GetRunSummary=function() return {result='victory',t=40} end
+HLE.UpdateEndSummary({phase='ready'});assert(not HLE.endSummary:IsShown(),'Stale victory appeared during ready');
 print('Bag, boss banner and run-summary regression fixture passed')
