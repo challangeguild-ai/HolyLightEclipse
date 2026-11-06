@@ -290,7 +290,7 @@ function H.RefreshSettings()
             -- Ensure the language's own name is readable even in an English UI.
             local ok,worked=pcall(H.langButtons[i].label.SetFont,H.langButtons[i].label,
                 "Fonts\\ARKai_T.TTF",11,"OUTLINE");
-            if not ok or worked==false then H.langButtons[i].label:SetText("Chinese"); end
+            if not ok or (worked~=true and worked~=1) then H.langButtons[i].label:SetText("Chinese"); end
         else H.LocalizedFont(H.langButtons[i].label,11); end
     end
     H.thresholdValue:SetText((H.Number(HLE_DB.threatLowPct) or 30).."%");
