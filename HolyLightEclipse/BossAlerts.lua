@@ -2,10 +2,13 @@
 -- non-boss banners and never infers a boss appearance from a cached schedule.
 local H=HLE;
 local WHITE="Interface\\AddOns\\HolyLightEclipse\\Media\\White.tga";
-local registered,lastId,started,untilTime=false,nil,false,nil;
-local function Hide() if H.bossWarning then H.bossWarning:Hide(); end end
+local registered,lastId,started,untilTime,activeKind=false,nil,false,nil,nil;
+local function Hide()
+    if H.bossWarning then H.bossWarning:Hide(); end
+    untilTime=nil; activeKind=nil;
+end
 function H.ResetBossAlerts()
-    Hide(); untilTime=nil; lastId=H.Number(H.Table(AZS_BANNER).id);
+    Hide(); lastId=H.Number(H.Table(AZS_BANNER).id);
 end
 function H.BuildBossAlerts()
     local f=CreateFrame("Frame","HLEBossWarning",UIParent); f:SetWidth(330); f:SetHeight(66);
@@ -24,6 +27,19 @@ function H.BuildBossAlerts()
     f.name:SetJustifyH("CENTER"); f.name:SetTextColor(1,0.35,0.38);
     f:Hide(); H.bossWarning=f;
 end
+-- Reuse the boss warning's CENTER location rather than stacking alert overlays.
+-- Threats take priority until their short duration ends.
+function H.ShowThreatNotice(title,detail,duration)
+    if not HLE_DB or not HLE_DB.enabled or HLE_DB.threatAlerts==false or
+        H.suspended or not H.bossWarning then return false; end
+    local now=H.Number(H.Call("GetTime"));
+    if not now then return false; end
+    H.bossWarning.title:SetText(H.Text(title,"DANGER"));
+    H.bossWarning.name:SetText(H.Text(detail,""));
+    activeKind="threat"; untilTime=now+(H.Number(duration) or 2.5);
+    H.bossWarning:SetAlpha(1); H.bossWarning:Show();
+    return true;
+end
 function H.BossBannerNotice(banner)
     if type(banner)~="table" or (banner.kind~="boss" and banner.kind~="finalboss") then return; end
     if not HLE_DB or not HLE_DB.enabled or not HLE_DB.bossAlerts or H.suspended then return; end
@@ -32,9 +48,12 @@ function H.BossBannerNotice(banner)
         lastId=banner.id;
     end
     if not H.bossWarning then return; end
+    local now=H.Number(H.Call("GetTime"));
+    if activeKind=="threat" and now and untilTime and now<untilTime then return; end
+    activeKind="boss";
     H.bossWarning.title:SetText(banner.kind=="finalboss" and "FINAL BOSS" or "BOSS INCOMING");
     H.bossWarning.name:SetText(H.Text(banner.name,H.Text(banner.text,"Encounter")));
-    local now=H.Number(H.Call("GetTime")); untilTime=now and now+2.4 or nil;
+    untilTime=now and now+2.4 or nil;
     H.bossWarning:SetAlpha(1); H.bossWarning:Show();
 end
 function H.StartBossAlerts()
@@ -54,13 +73,21 @@ function H.StopBossAlerts()
 end
 function H.UpdateBossAlerts(s)
     if not H.bossWarning then return; end
-    if not HLE_DB.enabled or HLE_DB.bossAlerts==false or H.suspended or not s.active or (s.playerDead and not s.coopDown) then
+    if not HLE_DB.enabled or H.suspended or not s.active or
+        (s.playerDead and not s.coopDown) then
         H.StopBossAlerts(); return;
     end
-    if not started then H.StartBossAlerts(); end
-    if not registered then
-        local banner=H.Table(AZS_BANNER); local id=H.Number(banner.id);
-        if id and (not lastId or id>lastId) then H.BossBannerNotice(banner); end
+    if HLE_DB.bossAlerts==false then
+        if registered and type(AZS_UnregisterBannerHandler)=="function" then
+            pcall(AZS_UnregisterBannerHandler,H.BossBannerNotice);
+        end
+        registered=false; started=false;
+    else
+        if not started then H.StartBossAlerts(); end
+        if not registered then
+            local banner=H.Table(AZS_BANNER); local id=H.Number(banner.id);
+            if id and (not lastId or id>lastId) then H.BossBannerNotice(banner); end
+        end
     end
     if H.bossWarning:IsShown() then
         local now=H.Number(H.Call("GetTime"));
