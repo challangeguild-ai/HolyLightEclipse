@@ -33,7 +33,7 @@ jobs:
           out.parent.mkdir(parents=True, exist_ok=True)
           with zipfile.ZipFile(out, 'w', zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
               for src in sorted(root.rglob('*')):
-                  if src.is_file() and 'Tests' not in src.parts:
+                  if src.is_file():
                       archive.write(src, src.as_posix())
           with zipfile.ZipFile(out) as archive:
               names = archive.namelist()
