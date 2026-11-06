@@ -64,7 +64,8 @@ local function ActiveButton(b,active)
     else b.bg:SetVertexColor(0.14,0.075,0.20,0.95); end
 end
 local function SetPage(v)
-    activePage=v; H.RefreshSettings();
+    activePage=v; H.settingsResetArmed=false;
+    H.RefreshSettings();
 end
 local function SetAdvanced(v)
     advanced=v==true;
@@ -74,7 +75,7 @@ local function SetAdvanced(v)
 end
 function H.ToggleSettings()
     if not H.settings then return; end
-    if H.settings:IsShown() then H.settings:Hide();
+    if H.settings:IsShown() then H.settingsResetArmed=false; H.settings:Hide();
     else H.RefreshSettings(); H.settings:Show(); end
 end
 function H.ChangeHudScale(value)
@@ -283,7 +284,15 @@ function H.RefreshSettings()
     H.advancedButton.label:SetText((advanced and "[-]  " or "[+]  ")..H.L("advanced"));
     H.LocalizedFont(H.advancedButton.label,11);
     for i=1,3 do ActiveButton(H.sizeButtons[i],math.abs((HLE_DB.scale or 0.85)-H.sizeButtons[i].scale)<0.01);end
-    for i=1,4 do ActiveButton(H.langButtons[i],H.Language()==H.langButtons[i].lang);end
+    for i=1,4 do
+        ActiveButton(H.langButtons[i],H.Language()==H.langButtons[i].lang);
+        if i==4 and H.langButtons[i].label.SetFont then
+            -- Ensure the language's own name is readable even in an English UI.
+            local ok,worked=pcall(H.langButtons[i].label.SetFont,H.langButtons[i].label,
+                "Fonts\\ARKai_T.TTF",11,"OUTLINE");
+            if not ok or worked==false then H.langButtons[i].label:SetText("Chinese"); end
+        else H.LocalizedFont(H.langButtons[i].label,11); end
+    end
     H.thresholdValue:SetText((H.Number(HLE_DB.threatLowPct) or 30).."%");
     H.cooldownValue:SetText((H.Number(HLE_DB.threatCooldown) or 8).."s");
     for i=1,3 do
@@ -293,7 +302,7 @@ function H.RefreshSettings()
         H.LocalizedFont(r.name,12);
         H.LocalizedFont(r.save.label,11);H.LocalizedFont(r.load.label,11);
     end
-    H.profileReset.label:SetText(H.L("reset"));
+    H.profileReset.label:SetText(H.settingsResetArmed and H.L("reset_question") or H.L("reset"));
     H.profileMove.label:SetText(H.unlocked and H.L("lock") or H.L("unlock"));
     H.settingsEnabled.label:SetText(HLE_DB.enabled and "HUD: ON" or "HUD: OFF");
 end
