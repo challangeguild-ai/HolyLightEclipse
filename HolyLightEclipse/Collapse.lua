@@ -8,6 +8,8 @@ local titles={meter="DAMAGE METER",gear="EQUIPMENT",loot="LOOT",effects="BUFFS /
     navigation="NAVIGATION",jewelry="JEWELRY / JOURNAL",party="PARTY"};
 local enabledKeys={meter="showMeter",gear="showGear",loot="showLoot",effects="showEffects",
     navigation="showNavigation",jewelry="showJournal",party="showParty"};
+local titleKeys={meter="damage_meter",gear="equipment_caps",loot="loot_caps",
+    effects="effects_caps",navigation="navigation_caps",jewelry="jewelry_caps",party="party_caps"};
 
 function H.BuildCollapsePanels(panels)
     for i=1,table.getn(panels) do
@@ -45,8 +47,15 @@ function H.BuildCollapsePanels(panels)
             open:SetScript("OnMouseUp",function()
                 if arg1=="LeftButton" then H.ToggleCollapse(frame.key); end
             end);
-            header:Hide(); specs[frame.key]={frame=frame,header=header,title=title,label=label};
+            header:Hide(); specs[frame.key]={frame=frame,header=header,title=title,
+                localeKey=titleKeys[frame.key],label=label};
         end
+    end
+end
+function H.RefreshCollapseLabels()
+    for _,spec in pairs(specs) do
+        spec.title=H.L and H.L(spec.localeKey) or spec.title;
+        spec.label:SetText(spec.title);
     end
 end
 function H.ToggleCollapse(key)
