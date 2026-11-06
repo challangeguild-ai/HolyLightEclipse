@@ -145,7 +145,8 @@ function H.TakeOver(s)
     if preparing then ScanBeginNotice(); end
     HLE_DB.nativeBackup = H.Table(HLE_DB.nativeBackup);
     local wanted = {clock=s.time ~= nil or preparing, tally=preparing or (s.kills ~= nil and s.gold ~= nil and s.cache ~= nil),
-        bosses=type(AZS_GetBosses) == "function", build=H.hasSkills == true or H.ownsSkillBar == true, meter=type(AZS_GetMeter) == "function" and (s.dps ~= nil or preparing), banners=false};
+        bosses=type(AZS_GetBosses) == "function", build=H.hasSkills == true or H.ownsSkillBar == true, meter=type(AZS_GetMeter) == "function" and (s.dps ~= nil or preparing),
+        banners=HLE_DB.quietBanners~=false and HLE_DB.bossAlerts~=false};
     for i = 1, table.getn(parts) do
         local part = parts[i];
         if wanted[part] and type(AZS_IsHudShown) == "function" and type(AZS_SetHudShown) == "function" then
