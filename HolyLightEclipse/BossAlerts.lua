@@ -54,7 +54,7 @@ function H.StopBossAlerts()
 end
 function H.UpdateBossAlerts(s)
     if not H.bossWarning then return; end
-    if not HLE_DB.enabled or HLE_DB.bossAlerts==false or H.suspended or not s.active or s.playerDead then
+    if not HLE_DB.enabled or HLE_DB.bossAlerts==false or H.suspended or not s.active or (s.playerDead and not s.coopDown) then
         H.StopBossAlerts(); return;
     end
     if not started then H.StartBossAlerts(); end
