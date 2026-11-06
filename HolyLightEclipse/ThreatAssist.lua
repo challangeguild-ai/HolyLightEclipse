@@ -42,25 +42,26 @@ function H.UpdateThreatAssist(s)
 
     local previous=math.max(0,math.min(1,lastHP/lastMax));
     local fell=hp<lastHP and lastHP-hp or 0;
-    local enteredLow=armed and previous>0.30 and fraction<=0.30;
+    local threshold=(H.Number(HLE_DB.threatLowPct) or 30)/100;
+    local enteredLow=armed and previous>threshold and fraction<=threshold;
     local largeHit=fell>=0.35*max and fraction>0.30;
     lastHP,lastMax=hp,max;
 
     if enteredLow then armed=false; end
     if not enteredLow and not largeHit then return; end
-    if lastAlert and now-lastAlert<8 then return; end
+    if lastAlert and now-lastAlert<(H.Number(HLE_DB.threatCooldown) or 8) then return; end
 
     local title,detail;
     if enteredLow then
-        title="DANGER - LOW HEALTH";
-        detail="HP "..H.Short(math.floor(fraction*100+0.5)).."% - RECOVER";
+        title=H.L and H.L("low_health") or "DANGER - LOW HEALTH";
+        detail="HP "..H.Short(math.floor(fraction*100+0.5)).."% - "..(H.L and H.L("recover") or "RECOVER");
     else
         -- This hit has ALREADY happened; never misrepresent it as an incoming cast.
-        title="HEAVY HIT RECEIVED";
-        detail=H.Short(fell).." DAMAGE TAKEN - CHECK HP";
+        title=H.L and H.L("confirmed_hit") or "HEAVY HIT RECEIVED";
+        detail=H.Short(fell).." "..(H.L and H.L("damage_taken") or "DAMAGE TAKEN - CHECK HP");
     end
     if H.ShowThreatNotice and H.ShowThreatNotice(title,detail,2.5) then
         lastAlert=now;
-        if type(PlaySound)=="function" then pcall(PlaySound,"RaidWarning"); end
+        if HLE_DB.threatSound~=false and type(PlaySound)=="function" then pcall(PlaySound,"RaidWarning"); end
     end
 end
