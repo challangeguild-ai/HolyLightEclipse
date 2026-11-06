@@ -44,7 +44,7 @@ local function SameBannerText(a,b)
     return Clean(a)==Clean(b);
 end
 local function IsCurrentGameBanner(message)
-    if not HLE_DB or not HLE_DB.enabled or not HLE_DB.replaceNative or
+    if not HLE_DB or not HLE_DB.enabled or
         HLE_DB.quietBanners==false or type(message)~="string" then return false; end
     local now=H.Number(H.Call("GetTime"));
     if not now then return false; end
@@ -126,8 +126,9 @@ local function SuppressBeginNotice()
         if frame and type(frame.AddMessage) == "function" and not noticeHooks[name] then
             local original = frame.AddMessage;
             local wrapper = function(self, text, r, g, b, a, hold)
-                if HLE_DB.enabled and HLE_DB.replaceNative and
-                    (IsBeginNotice(text) or IsCurrentGameBanner(text)) then return; end
+                if HLE_DB.enabled and
+                    ((HLE_DB.replaceNative and IsBeginNotice(text)) or
+                    IsCurrentGameBanner(text)) then return; end
                 return original(self, text, r, g, b, a, hold);
             end;
             noticeHooks[name] = {frame=frame, original=original, wrapper=wrapper};
@@ -186,7 +187,22 @@ function H.RestoreNative(keepBosses,keepBanners)
 end
 function H.TakeOver(s)
     local preparing = s.phase == "ready";
-    if not HLE_DB.enabled or not HLE_DB.replaceNative or not s.hasAPI then H.RestoreNative(); return; end
+    if not HLE_DB.enabled or not s.hasAPI then H.RestoreNative(); return; end
+    -- Quiet banners is an independent user choice, not conditional on whether
+    -- our custom unit/action frames replace the game's standard HUD.
+    if not HLE_DB.replaceNative then
+        if HLE_DB.quietBanners~=false then
+            H.RestoreNative(false,true);
+            HLE_DB.nativeBackup=H.Table(HLE_DB.nativeBackup);
+            local shown=BannerShown();
+            if shown~=nil and HLE_DB.nativeBackup.banners==nil then
+                HLE_DB.nativeBackup.banners=shown;
+            end
+            if shown==true then SetBannersVisible(false); end
+            SuppressBeginNotice();
+        else H.RestoreNative(); end
+        return;
+    end
     if not s.active and not preparing then
         -- Keep ownership across death/end screens: restoring the native boss HUD
         -- here can redisplay its retained encounter from the previous life/run.
