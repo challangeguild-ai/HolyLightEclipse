@@ -2,11 +2,11 @@
 -- non-boss banners and never infers a boss appearance from a cached schedule.
 local H=HLE;
 local WHITE="Interface\\AddOns\\HolyLightEclipse\\Media\\White.tga";
-local registered,lastId,started,untilTime,activeKind=false,nil,false,nil,nil;
+local registered,lastId,started,untilTime,activeKind,activePriority=false,nil,false,nil,nil,0;
 local pendingBoss,currentBoss=nil,nil;
 local function Hide()
     if H.bossWarning then H.bossWarning:Hide(); end
-    untilTime=nil; activeKind=nil;
+    untilTime=nil; activeKind=nil; activePriority=0;
 end
 function H.ResetBossAlerts()
     Hide(); pendingBoss=nil; currentBoss=nil;
@@ -35,7 +35,7 @@ end
 local function RenderBoss(banner)
     if not H.bossWarning or not HLE_DB or HLE_DB.bossAlerts==false then return; end
     local now=H.Number(H.Call("GetTime"));
-    activeKind="boss"; currentBoss=banner;
+    activeKind="boss"; activePriority=0; currentBoss=banner;
     H.bossWarning.title:SetText(banner.kind=="finalboss" and
         (H.L and H.L("final_boss") or "FINAL BOSS") or
         (H.L and H.L("incoming_boss") or "BOSS INCOMING"));
@@ -46,18 +46,22 @@ local function RenderBoss(banner)
 end
 -- Reuse the boss warning's CENTER location rather than stacking alert overlays.
 -- Threats take priority until their short duration ends.
-function H.ShowThreatNotice(title,detail,duration)
+function H.ShowThreatNotice(title,detail,duration,priority)
     if not HLE_DB or not HLE_DB.enabled or HLE_DB.threatAlerts==false or
         H.suspended or not H.bossWarning then return false; end
     local now=H.Number(H.Call("GetTime"));
     if not now then return false; end
+    local newPriority=H.Number(priority) or 3;
+    if activeKind=="threat" and untilTime and now<untilTime and
+        activePriority>newPriority then return false; end
     if activeKind=="boss" and untilTime and now<untilTime and currentBoss then
         pendingBoss=currentBoss;
     end
     H.bossWarning.title:SetText(H.Text(title,"DANGER"));
     if H.LocalizedFont then H.LocalizedFont(H.bossWarning.title,16); H.LocalizedFont(H.bossWarning.name,12); end
     H.bossWarning.name:SetText(H.Text(detail,""));
-    activeKind="threat"; untilTime=now+(H.Number(duration) or 2.5);
+    activeKind="threat";activePriority=newPriority;
+    untilTime=now+(H.Number(duration) or 2.5);
     H.bossWarning:SetAlpha(1); H.bossWarning:Show();
     return true;
 end
