@@ -27,6 +27,7 @@ jobs:
           (cd HolyLightEclipse && lua5.1 Tests/rescue_banner.lua)
           (cd HolyLightEclipse && lua5.1 Tests/hc_lifecycle.lua)
           (cd HolyLightEclipse && lua5.1 Tests/threat_assist.lua)
+          (cd HolyLightEclipse && lua5.1 Tests/settings_launcher.lua)
       - name: Build installable folder ZIP
         shell: bash
         run: |
@@ -46,7 +47,7 @@ jobs:
           assert all((folder / name).is_file() for name in required)
           out = Path("dist")
           out.mkdir(exist_ok=True)
-          target = out / "HolyLightEclipse-0.9.10-full-preview.zip"
+          target = out / "HolyLightEclipse-0.9.11-full-preview.zip"
           files = sorted(path for path in folder.rglob("*") if path.is_file())
           with ZipFile(target, "w", ZIP_DEFLATED) as archive:
               for path in files:
@@ -61,7 +62,7 @@ jobs:
       - name: Upload installable preview ZIP
         uses: actions/upload-artifact@v4
         with:
-          name: HolyLightEclipse-0.9.10-full-preview
+          name: HolyLightEclipse-0.9.11-full-preview
           path: dist/
           if-no-files-found: error
           retention-days: 30
