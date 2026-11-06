@@ -1,0 +1,48 @@
+name: Package installable preview ZIP
+on:
+  push:
+    branches:
+      - fix/observed-area-and-marks-20261106
+    paths:
+      - .github/workflows/preview-installable.yml
+      - HolyLightEclipse/**
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - name: Create installable addon ZIP with one root folder
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import zipfile
+          root = Path('HolyLightEclipse')
+          assert (root / 'HolyLightEclipse.toc').is_file()
+          out = Path('downloads/HolyLightEclipse-0.9.12-preview-install.zip')
+          out.parent.mkdir(parents=True, exist_ok=True)
+          with zipfile.ZipFile(out, 'w', zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
+              for src in sorted(root.rglob('*')):
+                  if src.is_file() and 'Tests' not in src.parts:
+                      archive.write(src, src.as_posix())
+          with zipfile.ZipFile(out) as archive:
+              names = archive.namelist()
+              assert all(n.startswith('HolyLightEclipse/') for n in names)
+              assert 'HolyLightEclipse/HolyLightEclipse.toc' in names
+              assert any(n.endswith('.tga') for n in names)
+              assert len([n for n in names if n.endswith('.lua')]) >= 20
+          print('Created', out, out.stat().st_size, 'bytes')
+          PY
+      - name: Save ZIP to preview branch only
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add downloads/HolyLightEclipse-0.9.12-preview-install.zip
+          if ! git diff --cached --quiet; then
+            git commit -m 'Package installable 0.9.12 preview addon'
+            git push origin HEAD:fix/observed-area-and-marks-20261106
+          fi
