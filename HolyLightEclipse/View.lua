@@ -3,6 +3,37 @@ local GOLD, VIOLET = {0.95,0.74,0.35}, {0.63,0.39,0.93};
 local WHITE = "Interface\\AddOns\\HolyLightEclipse\\Media\\White.tga";
 local MEDIA = "Interface\\AddOns\\HolyLightEclipse\\Media\\";
 local panels, elapsed, ready = {}, 0, false;
+local function Notice(message)
+    if DEFAULT_CHAT_FRAME and DEFAULT_CHAT_FRAME.AddMessage then
+        DEFAULT_CHAT_FRAME:AddMessage("|cffffc453[Holy Light]|r "..message);
+    end
+end
+function H.SelectBoss(boss)
+    if type(boss)~="table" or type(boss.name)~="string" or boss.name=="" then return false; end
+    if H.IsPlayerDead() or H.lifeDead then Notice("Targeting unavailable while down."); return false; end
+    if type(TargetByName)~="function" then Notice("Boss click-to-target unavailable in this client."); return false; end
+    -- Vanilla exposes name targeting but no direct target-by-spawn-ID API.
+    local ok=pcall(TargetByName,boss.name,true);
+    if not ok then Notice("Targeting was rejected by the client."); return false; end
+    local name=H.Call("UnitName","target");
+    if name~=boss.name then
+        if type(TargetLastTarget)=="function" then pcall(TargetLastTarget); end
+        Notice("Could not safely select boss: "..boss.name);
+        return false;
+    end
+    local id=H.Number(H.Table(AZS_TARGET).id);
+    if id and H.Number(boss.id) and id~=boss.id then
+        -- The target snapshot may lag behind the native reticle.
+        Notice("Selected by name; boss instance could not be verified.");
+    end
+    return true;
+end
+local function AffixLabel(raw)
+    if type(raw)~="string" or raw=="" then return ""; end
+    local value=string.upper(raw);
+    value=string.gsub(value,",%s*","  /  ");
+    return value;
+end
 local function Text(p,size,x,y,w,color)
     local f=p:CreateFontString(nil,"OVERLAY"); f:SetFont("Fonts\\FRIZQT__.TTF",size,"OUTLINE");
     f:SetPoint("TOPLEFT",p,"TOPLEFT",x,y); f:SetWidth(w); f:SetHeight(size+5); f:SetJustifyH("LEFT");
@@ -36,6 +67,40 @@ function H.SavePanelPosition(f)
     local x,y=f:GetCenter(); local ux,uy=UIParent:GetCenter();
     local ratio=UIParent:GetEffectiveScale()/f:GetEffectiveScale();
     HLE_DB[f.key]={x=x-ux*ratio,y=y-uy*ratio}; Position(f);
+end
+-- Scale controls preserve every panel's center in real screen coordinates.
+-- Previously /hle scale cleared saved positions; never reset them on resizing.
+function H.ApplyScaleKeepingPositions(newScale)
+    if not H.Number(newScale) or newScale<0.6 or newScale>1.4 then return false; end
+    local saved={};
+    if UIParent and UIParent.GetCenter and UIParent.GetEffectiveScale then
+        local ux,uy=UIParent:GetCenter();
+        local up=H.Number(UIParent:GetEffectiveScale());
+        if ux and uy and up then
+            for i=1,table.getn(panels) do
+                local frame=panels[i];
+                if frame.GetCenter and frame.GetEffectiveScale then
+                    local cx,cy=frame:GetCenter();
+                    local factor=H.Number(frame:GetEffectiveScale());
+                    if cx and cy and factor then
+                        saved[frame.key]={x=cx*factor-ux*up,y=cy*factor-uy*up};
+                    end
+                end
+            end
+        end
+    end
+    HLE_DB.scale=newScale;
+    for i=1,table.getn(panels) do
+        local frame=panels[i];
+        frame:SetScale(newScale);
+        local old=saved[frame.key];
+        local factor=frame.GetEffectiveScale and H.Number(frame:GetEffectiveScale());
+        if old and factor and factor>0 then
+            HLE_DB[frame.key]={x=old.x/factor,y=old.y/factor};
+        end
+    end
+    H.ApplyLayout();
+    return true;
 end
 local function Panel(name,key,w,h,anchor,offset,xoffset)
     local f=CreateFrame("Frame",name,UIParent); f:SetWidth(w); f:SetHeight(h); f:SetFrameStrata("MEDIUM");
@@ -114,6 +179,8 @@ local function Build()
         Texture(overlay,MEDIA.."Skill04.tga",0,0,64,64,"OVERLAY");
         c.name=Text(overlay,8,6,-6,52,{0.95,0.87,0.69}); c.name:SetHeight(22);
         c.cd=Text(overlay,18,5,-23,54,{1,0.95,0.83}); c.cd:SetJustifyH("CENTER");
+        c.readyText=Text(overlay,9,5,-5,54,{1,0.89,0.38});
+        c.readyText:SetJustifyH("CENTER"); c.readyText:SetText("READY"); c.readyText:Hide();
         c.progress=Bar(overlay,6,-57,52,2,VIOLET); c.progress.label:Hide(); c:EnableMouse(true);
         c:SetScript("OnEnter",function()
             if this.nativeSlot and GameTooltip and GameTooltip.SetAction then
@@ -145,6 +212,7 @@ local function Build()
     H.clock=Text(H.top,28,294,-20,156,{1,0.94,0.81}); H.clock:SetHeight(40);
     pcall(H.clock.SetFont,H.clock,"Fonts\\ARIALN.TTF",28,"OUTLINE"); H.clock:SetJustifyH("CENTER");
     H.zone=Text(H.top,13,24,-7,254); H.zone:SetHeight(20);
+    H.hcAffixes=Text(H.top,10,24,-54,263,{0.77,0.65,0.92}); H.hcAffixes:SetHeight(20);
     H.killStats=Text(H.top,12,184,-29,98,{0.95,0.91,0.84}); H.killStats:SetHeight(24); H.killStats:SetJustifyH("RIGHT");
     H.stats=Text(H.top,12,464,-29,256,{0.95,0.91,0.84}); H.stats:SetHeight(24);
     H.statsHover=CreateFrame("Frame",nil,H.top); H.statsHover:SetWidth(256); H.statsHover:SetHeight(24);
@@ -154,9 +222,24 @@ local function Build()
     end);
     H.statsHover:SetScript("OnLeave",function() if GameTooltip then GameTooltip:Hide(); end end);
     H.nextBoss=Text(H.top,10,464,-56,256,VIOLET); H.nextBoss:SetHeight(35);
-    H.bossPanel=CreateFrame("Frame",nil,H.top); H.bossPanel:SetWidth(560); H.bossPanel:SetHeight(72);
+    H.bossPanel=CreateFrame("Frame",nil,H.top); H.bossPanel:SetWidth(410); H.bossPanel:SetHeight(69);
     H.bossBars={};
-    for i=1,3 do H.bossBars[i]=Bar(H.bossPanel,0,-(i-1)*24,560,20,VIOLET); end
+    for i=1,3 do
+        local bar=Bar(H.bossPanel,0,-(i-1)*23,410,19,VIOLET);
+        bar.label:SetWidth(397); bar:EnableMouse(true);
+        bar:SetScript("OnMouseUp",function()
+            if arg1=="LeftButton" and this.boss then H.SelectBoss(this.boss); end
+        end);
+        bar:SetScript("OnEnter",function()
+            if GameTooltip and this.boss then
+                GameTooltip:SetOwner(this,"ANCHOR_TOP");
+                GameTooltip:SetText("Click to target: "..H.Text(this.boss.name));
+                GameTooltip:Show();
+            end
+        end);
+        bar:SetScript("OnLeave",function() if GameTooltip then GameTooltip:Hide(); end end);
+        H.bossBars[i]=bar;
+    end
     H.meter=Panel("HLEMeter","meter",280,240,"RIGHT",-35,-24);
     H.meterArt=Texture(H.meter,MEDIA.."MeterFrame.tga",0,0,280,240);
     H.meterTitle=Text(H.meter,12,13,-12,254); H.meterRows={};
@@ -178,8 +261,12 @@ local function Build()
     H.BuildTracking(Text,Texture,Panel);
     H.gear=Panel("HLEEquipment","gear",240,136,"LEFT",-35,24); H.BuildEquipment(H.gear);
     H.BuildExtras(Text,Texture,Panel);
-    H.BuildGroupMap(Text,Texture,Bar,Panel); H.BuildBossLoot(Text,Texture); H.BuildTimeline(Text,Texture);
+    H.BuildGroupMap(Text,Texture,Bar,Panel);
+    H.BuildMinimapLauncher();
+    H.BuildRescue(); H.BuildBossLoot(Text,Texture); H.BuildTimeline(Text,Texture);
     H.loot=Panel("HLELoot","loot",300,216,"TOP",-295,0); H.BuildLoot(H.loot);
+    H.BuildBossAlerts(); H.BuildEndSummary();
+    H.BuildCollapsePanels(panels);
 end
 function H.ClearSkillVisuals()
     if H.ReleaseActionButtons then H.ReleaseActionButtons(); end
@@ -187,6 +274,7 @@ function H.ClearSkillVisuals()
         for i=1,H.maxSkills do
             local c=H.skills[i]; c:Hide(); c.nativeSlot=nil; c.cd:SetText(""); c.name:SetText("");
             c.layoutOrder,c.layoutCount=nil,nil;
+            c.readyUntil=nil; c.lastCooldown=nil; c.lastAbility=nil; c.readyText:Hide();
         end
     end
     H.hasSkills=false; H.lastSkillCount=nil;
@@ -255,6 +343,16 @@ function H.Render(s)
             c.icon:Show();
             if spell.icon then c.icon:SetVertexColor(1,1,1,1); else c.icon:SetVertexColor(0.16,0.08,0.24,1); end
             local cd,maximum=H.Number(spell.cd),H.Number(spell.cdmax);
+            local identity=H.Text(spell.key,H.Text(spell.name,tostring(i)));
+            if c.lastAbility~=identity then c.readyUntil=nil; c.lastCooldown=nil; c.lastAbility=identity; end
+            local now=H.Number(H.Call("GetTime"));
+            if HLE_DB.skillAlerts and not spell.passive and now and
+                c.lastCooldown and c.lastCooldown>0.05 and cd and cd<=0.05 then
+                c.readyUntil=now+1.25;
+            end
+            if cd then c.lastCooldown=cd; else c.lastCooldown=nil; end
+            if HLE_DB.skillAlerts and now and c.readyUntil and now<c.readyUntil then c.readyText:Show();
+            else c.readyText:Hide(); end
             c.name:SetText(spell.icon and "" or H.Text(spell.name,""));
             c.cd:SetText(spell.passive and "" or (cd and (cd>0.05 and (cd<10 and string.format("%.1f",cd) or string.format("%.0f",math.ceil(cd))) or "") or "?"));
             local fraction=cd and maximum and maximum>0 and math.max(0,math.min(1,cd/maximum)) or 0;
@@ -263,20 +361,23 @@ function H.Render(s)
         else
             H.ReleaseActionCard(c); c:Hide(); c.nativeSlot=nil; c.info=nil;
             c.name:SetText(""); c.cd:SetText(""); c.progress:SetValue(0); c.shade:Hide();
+            c.lastCooldown=nil; c.lastAbility=nil; c.readyUntil=nil; c.readyText:Hide();
         end
     end
     local runTime=H.Number(s.time);
     H.clock:SetText(s.phase=="ready" and "READY" or (runTime and runTime>=0 and string.format("%02d:%02d",math.floor(runTime/60),math.mod(math.floor(runTime),60)) or "--:--"));
-    H.zone:SetText(H.Text(s.zone,s.phase=="ready" and "Move to begin" or ""));
-    H.killStats:SetText(s.active and ("KILLS "..H.MoneyShort(s.kills)) or "");
-    H.stats:SetText(s.active and ("GOLD "..H.MoneyShort(s.gold).."   CACHE "..H.MoneyShort(s.cache)) or "");
+    H.zone:SetText(H.Text(s.zone,s.phase=="ready" and "Move to begin" or "")..
+        (s.active and s.heroic and s.heroic>0 and ("   /   HC "..H.Short(s.heroic)) or ""));
+    H.hcAffixes:SetText(s.active and AffixLabel(s.affixes) or "");
+    H.killStats:SetText(s.active and (H.L("kills").." "..H.MoneyShort(s.kills)) or "");
+    H.stats:SetText(s.active and (H.L("gold").." "..H.MoneyShort(s.gold).."   "..H.L("cache").." "..H.MoneyShort(s.cache)) or "");
     local function Full(v) return H.Number(v) and string.format("%.0f",v) or "--"; end
-    H.fullStats=s.active and ("KILLS "..Full(s.kills).."\nGOLD "..Full(s.gold).."\nCACHE "..Full(s.cache)) or nil;
+    H.fullStats=s.active and (H.L("kills").." "..Full(s.kills).."\n"..H.L("gold").." "..Full(s.gold).."\n"..H.L("cache").." "..Full(s.cache)) or nil;
     local nextText="";
     -- Upcoming bosses are shown only in the integrated timeline.
     H.nextBoss:SetText(nextText..(s.stored and s.stored>0 and ("   +"..H.Short(s.stored).." levels: /hle levels") or ""));
     local encounters={};
-    if s.active and not s.playerDead and not H.lifeDead then
+    if s.active and ((not s.playerDead and not H.lifeDead) or s.coopDown) then
         for i=1,table.getn(s.bosses) do
             local b=H.Table(s.bosses[i]);
             if H.Number(b.hp) and b.hp>0 and H.Number(b.hpm) and b.hpm>0 then table.insert(encounters,b); end
@@ -287,30 +388,40 @@ function H.Render(s)
     H.bossPanel:ClearAllPoints(); H.bossPanel:SetPoint("TOP",H.top,"BOTTOM",0,-10);
     for i=1,3 do
         local bar,b=H.bossBars[i],encounters[i];
-        if b then bar:Show(); SetBar(bar,b.hp,b.hpm,H.Text(b.name).."  "); else bar:Hide(); end
+        if b then
+            bar.boss=b; bar:Show(); bar:SetValue(math.max(0,math.min(1,b.hp/b.hpm)));
+            local ratio=math.floor(100*b.hp/b.hpm+0.5);
+            bar.label:SetText(H.Text(b.name).."  "..H.Short(b.hp).."/"..H.Short(b.hpm).."  "..ratio.."%"..
+                (b.enraged and ("  "..H.L("enraged")) or ""));
+            if b.enraged then bar:SetStatusBarColor(0.84,0.13,0.17);
+            else bar:SetStatusBarColor(unpack(VIOLET)); end
+        else bar.boss=nil; bar:Hide(); end
     end
     H.ClearBossTracking();
     if table.getn(encounters)>0 then H.bossPanel:Show(); else H.bossPanel:Hide(); end
     if table.getn(encounters)>3 then H.nextBoss:SetText("+"..(table.getn(encounters)-3).." active bosses"); end
     local meter=H.ReadMeter(s);
     H.meterTitle:SetText(meter.title.."   "..H.Short(meter.rate)..(meter.healing and " HPS" or " DPS"));
-    H.meterStats:SetText(s.active and ((meter.healing and "HEAL " or "DMG ")..H.Short(meter.total).."   EN "..H.Short(s.enemies)) or "");
+    local summary=(meter.healing and "HEAL " or "DMG ")..H.Short(meter.total);
+    if meter.scope~="party" then summary=summary.."   EN "..H.Short(s.enemies); end
+    H.meterStats:SetText(s.active and (meter.unavailable and "DATA UNAVAILABLE" or summary) or "");
     local lines=H.Table(meter.lines); local first=H.Number(H.Table(lines[1]).dmg);
-    local rows=HLE_DB.meterRows or 8; local w=HLE_DB.meterWidth or 280; local height=96+rows*20;
+    local rows=HLE_DB.meterRows or 8; local w=HLE_DB.meterWidth or 280; local height=132+rows*20;
     H.meter:SetWidth(w); H.meter:SetHeight(height); H.meterArt:SetWidth(w); H.meterArt:SetHeight(height);
     H.meterTitle:SetWidth(w-26); H.meterStats:SetWidth(w-26);
     H.meterStats:ClearAllPoints(); H.meterStats:SetPoint("TOPLEFT",H.meter,"TOPLEFT",13,-40-rows*20);
     H.meterHint:ClearAllPoints(); H.meterHint:SetPoint("TOPLEFT",H.meter,"TOPLEFT",13,-height+17);
     local pages=math.max(1,math.ceil(table.getn(lines)/rows)); H.meterPage=math.min(pages-1,H.meterPage or 0);
     H.meterHint:SetText(pages>1 and ("PAGE "..(H.meterPage+1).."/"..pages) or "");
-    for i=1,3 do local tab=H.meterTabs[i]; tab:ClearAllPoints(); tab:SetPoint("TOPLEFT",H.meter,"TOPLEFT",13+(i-1)*67,-height+40); end
+    for i=1,2 do local tab=H.meterScopeTabs[i]; tab:ClearAllPoints(); tab:SetPoint("TOPLEFT",H.meter,"TOPLEFT",13+(i-1)*78,-height+68); end
+    for i=1,3 do local tab=H.meterTabs[i]; tab:ClearAllPoints(); tab:SetPoint("TOPLEFT",H.meter,"TOPLEFT",13+(i-1)*67,-height+42); end
     for i=1,4 do local c=H.meterControls[i]; c:ClearAllPoints(); c:SetPoint("TOPLEFT",H.meter,"TOPLEFT",w-96+(i-1)*22,-height+21); end
     for i=1,16 do
         local bar=H.meterRows[i]; local line=H.Table(lines[H.meterPage*rows+i]); local dmg=H.Number(line.dmg);
         if i<=rows then
             bar:Show(); bar:SetWidth(w-26); bar.background:SetWidth(w-26); bar.label:SetWidth(w-36);
             bar:SetValue(dmg and first and first>0 and math.max(0,math.min(1,dmg/first)) or 0);
-            local name=H.Text(line.name,i==1 and (meter.unavailable and "API unavailable" or "No data yet") or "");
+            local name=H.Text(line.name,i==1 and (meter.unavailable and H.Text(meter.reason,"API unavailable") or "No data yet") or "");
             bar.label:SetText(name..(dmg and ("  "..H.Short(dmg)) or ""));
         else bar:Hide(); end
     end
@@ -318,12 +429,23 @@ function H.Render(s)
     if not combatOK then H.errors.CombatText=tostring(combatError); HLE_DB.customDamage=false; HLE_DB.incomingHealing=false; H.StopCombatText(); end
     local partyOK,partyError=pcall(H.UpdateParty,s);
     if not partyOK then HLE_DB.showParty=false; H.RestoreParty(); H.errors.Party=tostring(partyError); end
+    local rescueOK,rescueError=pcall(H.UpdateRescue,s);
+    if not rescueOK then HLE_DB.rescueArrow=false; H.ResetRescue(); H.errors.Rescue=tostring(rescueError); end
     local mapOK,mapError=pcall(H.UpdateMinimap);
     if not mapOK then HLE_DB.skinMinimap=false; H.RestoreMinimap(); H.errors.Minimap=tostring(mapError); end
     local bossLootOK,bossLootError=pcall(H.UpdateBossLoot,s,0.05);
     if not bossLootOK then H.errors.BossLoot=tostring(bossLootError); H.HideBossLoot(); end
     H.UpdateChat(); H.UpdateTracking(s); H.UpdateLegacyBuffs(s);
     H.UpdateExtras(s,0.05);
+    local alertOK,alertError=pcall(H.UpdateBossAlerts,s);
+    if not alertOK then HLE_DB.bossAlerts=false; H.StopBossAlerts(); H.errors.BossAlerts=tostring(alertError); end
+    local encounterOK,encounterError=pcall(H.UpdateEncounterAssist,s);
+    if not encounterOK then H.errors.EncounterAssist=tostring(encounterError); H.ResetEncounterAssist(); end
+    local dangerOK,dangerError=pcall(H.UpdateThreatAssist,s);
+    if not dangerOK then HLE_DB.threatAlerts=false; H.ResetThreatAssist(); H.errors.ThreatAssist=tostring(dangerError); end
+    local summaryOK,summaryError=pcall(H.UpdateEndSummary,s);
+    if not summaryOK then HLE_DB.showEndSummary=false; H.ResetEndSummary(); H.errors.EndSummary=tostring(summaryError); end
+    H.UpdateCollapsedPanels(s);
 end
 local function Print(msg) if DEFAULT_CHAT_FRAME then DEFAULT_CHAT_FRAME:AddMessage(msg); end end
 local function Visibility()
@@ -333,11 +455,11 @@ local function Visibility()
     end
     if not HLE_DB.showGear or not HLE_DB.enabled then H.ClearEquipment(); end
     if not HLE_DB.showLoot or not HLE_DB.enabled then H.ClearLoot(); end
-    if not HLE_DB.enabled then H.HideBossLoot(); H.RestoreChat(); H.StopCombatText(); H.RestoreNative(); H.RestoreNameplates(); H.ResetTracking(); H.effects:Hide(); H.ClearExtras(); H.RestoreParty(); H.RestoreMinimap(); H.RestoreLegacyBuffs(); end
+    if not HLE_DB.enabled then H.ResetEncounterAssist(); H.ResetThreatAssist(); H.ClearCollapsedPanels(); H.HideBossLoot(); H.RestoreChat(); H.StopCombatText(); H.RestoreNative(); H.RestoreNameplates(); H.ResetTracking(); H.effects:Hide(); H.ClearExtras(); H.RestoreParty(); H.ResetRescue(); H.RestoreMinimap(); H.RestoreLegacyBuffs(); H.ClearBagSkin(); H.StopBossAlerts(); H.ResetEndSummary(); end
 end
 function H.ApplyLayout()
     for i=1,table.getn(panels) do Position(panels[i]); end
-    Visibility(); H.UpdateTracking(H.Read()); H.UpdateExtras(H.Read(),1);
+    Visibility(); H.UpdateTracking(H.Read()); H.UpdateExtras(H.Read(),1); H.UpdateCollapsedPanels(H.Read());
 end
 local function Command(msg)
     msg=string.lower(msg or "");
@@ -352,14 +474,52 @@ local function Command(msg)
     elseif string.find(msg,"^meter width %d+$") then HLE_DB.meterWidth=math.max(230,math.min(480,tonumber(string.sub(msg,13)) or 280)); H.Render(H.Read());
     elseif msg=="damage" then HLE_DB.customDamage=not HLE_DB.customDamage; H.UpdateCombatText(H.Read());
     elseif msg=="healing" then HLE_DB.incomingHealing=not HLE_DB.incomingHealing; H.UpdateCombatText(H.Read());
-    elseif msg=="meter run" or msg=="meter boss" or msg=="meter heal" then HLE_DB.meterMode=string.sub(msg,7); H.Render(H.Read());
+    elseif msg=="meter run" or msg=="meter boss" or msg=="meter heal" then
+        HLE_DB.meterMode=string.sub(msg,7); H.meterPage=0; H.ResetMeterCache(); H.Render(H.Read());
+    elseif msg=="meter self" or msg=="meter party" then
+        HLE_DB.meterScope=string.sub(msg,7); H.meterPage=0; H.ResetMeterCache(); H.Render(H.Read());
     elseif msg=="effects" then HLE_DB.showEffects=not HLE_DB.showEffects; H.UpdateTracking(H.Read());
     elseif msg=="party" then HLE_DB.showParty=not HLE_DB.showParty; H.UpdateParty(H.Read());
+    elseif msg=="bag" then
+        HLE_DB.skinBags=not HLE_DB.skinBags;
+        if not HLE_DB.skinBags then H.ClearBagSkin(); else H.UpdateBagSkin(1); end
+    elseif msg=="skills" then
+        HLE_DB.skillAlerts=not HLE_DB.skillAlerts; H.Render(H.Read());
+    elseif msg=="threats" then
+        HLE_DB.threatAlerts=not HLE_DB.threatAlerts;
+        H.ResetThreatAssist();
+        Print(HLE_DB.threatAlerts and "Evidence-only danger alerts: ON." or "Danger alerts: OFF.");
+    elseif msg=="bossalerts" then
+        HLE_DB.bossAlerts=not HLE_DB.bossAlerts;
+        if not HLE_DB.bossAlerts then H.UpdateBossAlerts(H.Read()); end
+        H.TakeOver(H.Read());
+    elseif msg=="banners" then
+        HLE_DB.quietBanners=not HLE_DB.quietBanners;
+        H.TakeOver(H.Read());
+        Print(HLE_DB.quietBanners and "Native game banners: HIDDEN. Custom boss warnings remain independent." or "Native game banners: RESTORED.");
+    elseif msg=="summary" then
+        HLE_DB.showEndSummary=not HLE_DB.showEndSummary;
+        if not HLE_DB.showEndSummary then H.ResetEndSummary();
+        else H.UpdateEndSummary(H.Read()); end
+    elseif msg=="summary show" then H.ToggleEndSummary();
+    elseif msg=="rescue" then
+        HLE_DB.rescueArrow=not HLE_DB.rescueArrow;
+        if HLE_DB.rescueArrow then H.UpdateRescue(H.Read()); else H.ResetRescue(); end
     elseif msg=="timeline" then HLE_DB.showTimeline=not HLE_DB.showTimeline; H.Render(H.Read());
     elseif msg=="minimap" then HLE_DB.skinMinimap=not HLE_DB.skinMinimap; H.UpdateMinimap();
+    elseif msg=="launcher" then
+        HLE_DB.showLauncher=not HLE_DB.showLauncher; H.UpdateMinimapLauncher();
+        if HLE_DB.showLauncher then Print(H.L("open_settings")); end
+    elseif string.sub(msg,1,5)=="lang " then
+        local lang=string.sub(msg,6);
+        if lang=="zhcn" or lang=="zh" then lang="zhCN"; end
+        if not H.SetLanguage(lang) then Print("Languages: en, hu, de, zhCN"); end
+    elseif msg=="threatsound" then
+        HLE_DB.threatSound=not HLE_DB.threatSound;
+        H.ResetThreatAssist();
     elseif msg=="navigation" then HLE_DB.showNavigation=not HLE_DB.showNavigation; H.UpdateExtras(H.Read(),1);
     elseif msg=="journal" then HLE_DB.showJournal=not HLE_DB.showJournal; H.UpdateExtras(H.Read(),1);
-    elseif msg=="settings" or msg=="" then H.RefreshSettings(); if H.settings:IsShown() then H.settings:Hide(); else H.settings:Show(); end
+    elseif msg=="settings" or msg=="" then H.ToggleSettings();
     elseif string.find(msg,"^profile save [123]$") then H.Profile("save",tonumber(string.sub(msg,-1)));
     elseif string.find(msg,"^profile load [123]$") then H.Profile("load",tonumber(string.sub(msg,-1)));
     elseif msg=="gear" then HLE_DB.showGear=not HLE_DB.showGear; Visibility();
@@ -383,12 +543,7 @@ local function Command(msg)
         for i=1,table.getn(panels) do Position(panels[i]); end
     elseif string.sub(msg,1,6)=="scale " then
         local n=tonumber(string.sub(msg,7));
-        if n and n>=0.6 and n<=1.4 then
-            HLE_DB.scale=n; HLE_DB.main,HLE_DB.top,HLE_DB.meter=nil,nil,nil;
-            HLE_DB.gear=nil;
-            HLE_DB.loot=nil; HLE_DB.effects=nil; HLE_DB.navigation=nil; HLE_DB.jewelry=nil; HLE_DB.party=nil;
-            for i=1,table.getn(panels) do Position(panels[i]); end
-        else Print("Scale: 0.6 to 1.4"); end
+        if not H.ApplyScaleKeepingPositions(n) then Print("Scale: 0.6 to 1.4"); end
     elseif msg=="levels" then
         local s=H.Read(); if s.active and s.stored and s.stored>0 then H.Call("AZS_OpenStoredLevels"); end
     elseif msg=="status" then
@@ -399,8 +554,12 @@ local function Command(msg)
         Print("Nameplates: "..H.Short(table.getn(H.plateRecords)).."; inventory API: "..type(GetInventoryItemTexture));
         local names={"AZS_GetPhase","AZS_GetMeter","AZS_SetHudShown","GetActionTexture","GetActionCooldown"};
         for i=1,table.getn(names) do Print(names[i]..": "..type(getglobal(names[i]))); end
+        Print("Banners: quiet="..tostring(HLE_DB.quietBanners)..
+            "; native API="..tostring(H.Call("AZS_IsHudShown","banners"))..
+            "; CVar="..tostring(H.Call("GetCVar","hudBanners"))..
+            "; last kind="..H.Text(H.Table(AZS_BANNER).kind,"none"));
         for name,err in pairs(H.errors) do Print(name..": "..err); end
-    else Print("/hle damage | healing | meter rows 10 | meter width 320 | on | off | native | meter | meter run | meter boss | meter heal | effects | gear | loot | loot clear | plates | plates 1.2 | unlock | lock | reset | scale 0.8 | levels | status"); end
+    else Print("/hle settings | launcher | lang en/hu/de/zhCN | threats | threatsound | bossalerts | banners | bag | skills | summary | summary show | rescue | damage | healing | meter self | meter party | meter rows 10 | meter width 320 | on | off | native | meter | meter run | meter boss | meter heal | effects | gear | loot | loot clear | plates | plates 1.2 | unlock | lock | reset | scale 0.8 | levels | status"); end
 end
 local function Initialize()
     if ready then return; end
@@ -413,13 +572,27 @@ local function Initialize()
     if HLE_DB.showMeter==nil then HLE_DB.showMeter=true; end
     if HLE_DB.showGear==nil then HLE_DB.showGear=true; end
     if HLE_DB.showLoot==nil then HLE_DB.showLoot=true; end
+    HLE_DB.collapsed=H.Table(HLE_DB.collapsed);
     if HLE_DB.showParty==nil then HLE_DB.showParty=true; end
+    if HLE_DB.rescueArrow==nil then HLE_DB.rescueArrow=true; end
+    if HLE_DB.skinBags==nil then HLE_DB.skinBags=true; end
+    if HLE_DB.bossAlerts==nil then HLE_DB.bossAlerts=true; end
+    if HLE_DB.threatAlerts==nil then HLE_DB.threatAlerts=true; end
+    if HLE_DB.threatSound==nil then HLE_DB.threatSound=true; end
+    HLE_DB.threatLowPct=math.max(20,math.min(40,H.Number(HLE_DB.threatLowPct) or 30));
+    HLE_DB.threatCooldown=math.max(6,math.min(16,H.Number(HLE_DB.threatCooldown) or 8));
+    if HLE_DB.showLauncher==nil then HLE_DB.showLauncher=true; end
+    if not HLE_DB.language or (HLE_DB.language~="en" and HLE_DB.language~="hu" and HLE_DB.language~="de" and HLE_DB.language~="zhCN") then HLE_DB.language="en"; end
+    if HLE_DB.quietBanners==nil then HLE_DB.quietBanners=true; end
+    if HLE_DB.showEndSummary==nil then HLE_DB.showEndSummary=true; end
+    if HLE_DB.skillAlerts==nil then HLE_DB.skillAlerts=true; end
     if HLE_DB.showTimeline==nil then HLE_DB.showTimeline=true; end
     if HLE_DB.skinMinimap==nil then HLE_DB.skinMinimap=true; end
     if HLE_DB.showEffects==nil then HLE_DB.showEffects=true; end
     if HLE_DB.showNavigation==nil then HLE_DB.showNavigation=true; end
     if HLE_DB.showJournal==nil then HLE_DB.showJournal=false; end
     if HLE_DB.meterMode~="boss" and HLE_DB.meterMode~="heal" then HLE_DB.meterMode="run"; end
+    if HLE_DB.meterScope~="party" then HLE_DB.meterScope="self"; end
     if HLE_DB.nameplates==nil then HLE_DB.nameplates=true; end
     local plateScale=H.Number(HLE_DB.plateScale); HLE_DB.plateScale=plateScale and math.max(0.6,math.min(1.8,plateScale)) or 1;
     local n=H.Number(HLE_DB.scale); HLE_DB.scale=n and math.max(0.6,math.min(1.4,n)) or 0.85;
@@ -450,17 +623,17 @@ function HLE_OnEvent(evt,name)
     elseif evt=="PLAYER_LOGOUT" or evt=="PLAYER_LEAVING_WORLD" then
         H.RestoreChat(); H.StopCombatText();
         H.RestoreNameplates(); H.ClearEquipment();
-        H.ClearLoot(); H.ResetEncounters("world-leave"); H.ResetTracking(); H.ClearExtras(); H.RestoreParty(); H.RestoreMinimap(); H.RestoreLegacyBuffs(); H.ResetTimeline(); if H.effects then H.effects:Hide(); end
+        H.ClearLoot(); H.ResetEncounters("world-leave"); H.ResetTracking(); H.ClearExtras(); H.RestoreParty(); H.ResetRescue(); H.RestoreMinimap(); H.RestoreLegacyBuffs(); H.ClearBagSkin(); H.StopBossAlerts(); H.ResetThreatAssist(); H.ResetEncounterAssist(); H.ResetEndSummary(); H.ResetTimeline(); if H.effects then H.effects:Hide(); end
         H.LeaveSkillWorld();
         if ready then H.RestoreNative(); H.suspended=true; end
     elseif evt=="CHAT_MSG_ADDON" then
         H.TrackingEvent(name);
-        if name=="AZSZONE" then H.StartSkillRun("AZSZONE"); H.lifeDead=false; H.deathExplicit=false; H.ResetEncounters("AZSZONE"); H.ClearLoot(); H.ResetTracking(); H.ResetTimeline();
+        if name=="AZSZONE" then H.StartSkillRun("AZSZONE"); H.lifeDead=false; H.deathExplicit=false; H.ResetEncounters("AZSZONE"); H.ClearLoot(); H.ResetTracking(); H.ResetMeterCache(); H.ResetTimeline(); H.ResetRescue(); H.ResetBossAlerts(); H.ResetThreatAssist(); H.ResetEncounterAssist(); H.ResetEndSummary();
         elseif name=="AZSBOSSES" then H.TimelineUpdated();
         elseif name=="AZSSPELLS" then H.SpellsUpdated();
         elseif name=="AZSUNITS" then H.EncounterUnitsUpdated(); end
     elseif evt=="ADDON_LOADED" and name=="HolyLightEclipse" or evt=="PLAYER_LOGIN" or evt=="PLAYER_ENTERING_WORLD" then
-        if evt=="PLAYER_ENTERING_WORLD" then H.suspended=false; H.EnterSkillWorld(); H.lifeDead=false; H.deathExplicit=false; H.ResetEncounters("world-enter"); H.ResetTimeline(); end
+        if evt=="PLAYER_ENTERING_WORLD" then H.suspended=false; H.EnterSkillWorld(); H.lifeDead=false; H.deathExplicit=false; H.ResetEncounters("world-enter"); H.ResetMeterCache(); H.ResetTimeline(); H.ResetRescue(); H.StopBossAlerts(); H.ResetThreatAssist(); H.ResetEncounterAssist(); H.ResetEndSummary(); end
         Initialize();
     end
 end
@@ -484,6 +657,8 @@ function HLE_OnUpdate(delta)
                 Print("Equipment panel paused: "..tostring(message));
             end
         end
+        local bagOK,bagError=pcall(H.UpdateBagSkin,tick);
+        if not bagOK then HLE_DB.skinBags=false; H.ClearBagSkin(); H.errors.BagSkin=tostring(bagError); end
         if HLE_DB.showLoot then
             local success,message=pcall(H.UpdateLoot,tick);
             if not success then
@@ -491,6 +666,8 @@ function HLE_OnUpdate(delta)
                 Print("Loot notices paused: "..tostring(message));
             end
         end
+        -- Modules may re-show their roots; collapsed mode always wins after updates.
+        H.UpdateCollapsedPanels(s);
     end);
     if not ok then
         HLE_DB.enabled=false; Visibility(); Print("HUD stopped: "..tostring(err)..". Native HUD restored. /hle on to retry.");

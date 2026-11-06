@@ -5,6 +5,59 @@ local promptRegions = {};
 local scanCursor, scanDelay = nil, 0;
 H.promptMatches, H.promptScanned = 0, 0;
 local parts = {"clock", "tally", "bosses", "build", "meter", "banners"};
+local function BannerShown()
+    -- Documented game HUD API is authoritative. CVar supports older clients.
+    local value=H.Call("AZS_IsHudShown","banners");
+    if value==true or value==1 or value=="1" then return true; end
+    if value==false or value==0 or value=="0" then return false; end
+    if type(GetCVar)=="function" then
+        local ok,cvar=pcall(GetCVar,"hudBanners");
+        if ok then
+            if cvar=="1" or cvar==1 or cvar==true then return true; end
+            if cvar=="0" or cvar==0 or cvar==false then return false; end
+        end
+    end
+    return nil;
+end
+local function SetBannersVisible(show)
+    local used=false;
+    if type(AZS_SetHudShown)=="function" then
+        local ok=pcall(AZS_SetHudShown,"banners",show);
+        used=ok;
+    end
+    -- This is the documented CVar for the same HUD part. Only fall back if
+    -- the normal game API is absent or did not change the actual state.
+    if (not used or BannerShown()~=show) and type(SetCVar)=="function" then
+        local ok=pcall(SetCVar,"hudBanners",show and "1" or "0");
+        used=ok or used;
+    end
+    return used;
+end
+local function SameBannerText(a,b)
+    if type(a)~="string" or type(b)~="string" then return false; end
+    local function Clean(t)
+        t=string.gsub(t,"|c%x%x%x%x%x%x%x%x","");
+        t=string.gsub(t,"|r","");
+        t=string.gsub(t,"^%s+","");t=string.gsub(t,"%s+$","");
+        return string.lower(t);
+    end
+    return Clean(a)==Clean(b);
+end
+local function IsCurrentGameBanner(message)
+    if not HLE_DB or not HLE_DB.enabled or
+        HLE_DB.quietBanners==false or type(message)~="string" then return false; end
+    local now=H.Number(H.Call("GetTime"));
+    if not now then return false; end
+    local latest=H.Table(AZS_BANNER);
+    local time=H.Number(latest.time);
+    if time and math.abs(now-time)<=6 and SameBannerText(message,latest.text) then return true; end
+    local list=H.Table(AZS_BANNERS);
+    for i=1,20 do
+        local b=H.Table(list[i]); time=H.Number(b.time);
+        if time and math.abs(now-time)<=6 and SameBannerText(message,b.text) then return true; end
+    end
+    return false;
+end
 local function IsBeginNotice(text)
     if type(text) ~= "string" then return false; end
     text = string.gsub(text, "|c%x%x%x%x%x%x%x%x", "");
@@ -73,7 +126,9 @@ local function SuppressBeginNotice()
         if frame and type(frame.AddMessage) == "function" and not noticeHooks[name] then
             local original = frame.AddMessage;
             local wrapper = function(self, text, r, g, b, a, hold)
-                if HLE_DB.enabled and HLE_DB.replaceNative and IsBeginNotice(text) then return; end
+                if HLE_DB.enabled and
+                    ((HLE_DB.replaceNative and IsBeginNotice(text)) or
+                    IsCurrentGameBanner(text)) then return; end
                 return original(self, text, r, g, b, a, hold);
             end;
             noticeHooks[name] = {frame=frame, original=original, wrapper=wrapper};
@@ -96,7 +151,7 @@ local function Boolean(v)
     if v == false or v == 0 or v == "0" then return false; end
     return nil;
 end
-function H.RestoreNative(keepBosses)
+function H.RestoreNative(keepBosses,keepBanners)
     if H.ReleaseActionButtons then H.ReleaseActionButtons(); end
     for region, data in pairs(promptRegions) do
         if region.SetText == data.wrapper then
@@ -112,8 +167,11 @@ function H.RestoreNative(keepBosses)
     noticeHooks = {};
     local backup = H.Table(HLE_DB.nativeBackup);
     for part, shown in pairs(backup) do
-        if type(AZS_SetHudShown) == "function" and not (keepBosses and part=="bosses") then
-            local ok = pcall(AZS_SetHudShown, part, shown);
+        if (type(AZS_SetHudShown)=="function" or (part=="banners" and type(SetCVar)=="function")) and
+            not (keepBosses and part=="bosses") and not (keepBanners and part=="banners") then
+            local ok;
+            if part=="banners" then ok=SetBannersVisible(shown);
+            else ok=pcall(AZS_SetHudShown,part,shown); end
             if ok then backup[part] = nil; end
         end
     end
@@ -129,11 +187,36 @@ function H.RestoreNative(keepBosses)
 end
 function H.TakeOver(s)
     local preparing = s.phase == "ready";
-    if not HLE_DB.enabled or not HLE_DB.replaceNative or not s.hasAPI then H.RestoreNative(); return; end
+    if not HLE_DB.enabled or not s.hasAPI then H.RestoreNative(); return; end
+    -- Quiet banners is an independent user choice, not conditional on whether
+    -- our custom unit/action frames replace the game's standard HUD.
+    if not HLE_DB.replaceNative then
+        if HLE_DB.quietBanners~=false then
+            H.RestoreNative(false,true);
+            HLE_DB.nativeBackup=H.Table(HLE_DB.nativeBackup);
+            local shown=BannerShown();
+            if shown~=nil and HLE_DB.nativeBackup.banners==nil then
+                HLE_DB.nativeBackup.banners=shown;
+            end
+            if shown==true then SetBannersVisible(false); end
+            SuppressBeginNotice();
+        else H.RestoreNative(); end
+        return;
+    end
     if not s.active and not preparing then
         -- Keep ownership across death/end screens: restoring the native boss HUD
         -- here can redisplay its retained encounter from the previous life/run.
-        H.RestoreNative(true);
+        local quiet=HLE_DB.quietBanners~=false;
+        H.RestoreNative(true,quiet);
+        -- Keep the banner channel quiet through a death or victory screen,
+        -- while still restoring its original state when the addon is disabled.
+        if quiet then
+            local native=BannerShown();
+            if native~=nil then
+                if HLE_DB.nativeBackup.banners==nil then HLE_DB.nativeBackup.banners=native; end
+                if native then SetBannersVisible(false); end
+            end
+        end
         local current=Boolean(H.Call("AZS_IsHudShown","bosses"));
         if current~=nil and type(AZS_SetHudShown)=="function" then
             if HLE_DB.nativeBackup.bosses==nil then HLE_DB.nativeBackup.bosses=current; end
@@ -145,10 +228,23 @@ function H.TakeOver(s)
     if preparing then ScanBeginNotice(); end
     HLE_DB.nativeBackup = H.Table(HLE_DB.nativeBackup);
     local wanted = {clock=s.time ~= nil or preparing, tally=preparing or (s.kills ~= nil and s.gold ~= nil and s.cache ~= nil),
-        bosses=type(AZS_GetBosses) == "function", build=H.hasSkills == true or H.ownsSkillBar == true, meter=type(AZS_GetMeter) == "function" and (s.dps ~= nil or preparing), banners=false};
+        bosses=type(AZS_GetBosses) == "function", build=H.hasSkills == true or H.ownsSkillBar == true, meter=type(AZS_GetMeter) == "function" and (s.dps ~= nil or preparing),
+        banners=HLE_DB.quietBanners~=false};
     for i = 1, table.getn(parts) do
         local part = parts[i];
-        if wanted[part] and type(AZS_IsHudShown) == "function" and type(AZS_SetHudShown) == "function" then
+        if part=="banners" then
+            local native=BannerShown();
+            if wanted[part] then
+                if HLE_DB.nativeBackup.banners==nil and native~=nil then
+                    HLE_DB.nativeBackup.banners=native;
+                end
+                if native==true then SetBannersVisible(false); end
+            elseif HLE_DB.nativeBackup.banners~=nil then
+                if SetBannersVisible(HLE_DB.nativeBackup.banners) then
+                    HLE_DB.nativeBackup.banners=nil;
+                end
+            end
+        elseif wanted[part] and type(AZS_IsHudShown) == "function" and type(AZS_SetHudShown) == "function" then
             if HLE_DB.nativeBackup[part] == nil then HLE_DB.nativeBackup[part] = Boolean(H.Call("AZS_IsHudShown", part)); end
             if HLE_DB.nativeBackup[part] ~= nil and Boolean(H.Call("AZS_IsHudShown", part)) ~= false then
                 H.Call("AZS_SetHudShown", part, false);

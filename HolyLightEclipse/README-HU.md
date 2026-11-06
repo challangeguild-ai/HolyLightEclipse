@@ -242,3 +242,45 @@ A neveket minden frissítés az aktuális pálya AZS_GetLairs() listájából ol
 A kijelzett idő a játék által publikált érték (várakozáskor a dokumentáció szerint másodpercenként frissül), nem saját feltételezett respawn-periódus. Öt másodpercnél régebbi ismert publikációs bélyegnél frissítésre várást jelez; nem folytat hamis számlálást. A halál önmagában nem indít saját órát, a játék lair-state frissítése szükséges. A panel halott játékos mellett is olvasható, amíg a run aktív.
 
 Fontos API-korlát: ez a respawnhellyel rendelkező guardian/elit lista. A kliens nem ad ezzel egy általános felsorolást minden szabadon kóborló elit mobról, sem azok ismeretlen respawnidejéről. Ilyen adatot az addon nem talál ki. A kapcsoló továbbra is /hle navigation, a beállításokban Elite / guardian list néven szerepel. A buff/debuff és Action bar változatlan.
+
+## 0.9.7-preview – teljes co-op és általános HUD csomag (tesztverzió)
+
+Ez a verzió **nem stabil kiadás**: a WoW 1.12.1 / Azeroth Survivors kliensben élő tesztet igényel. A korábbi arany–lila HUD megmaradt; a táska natív működését az addon nem módosítja.
+
+- **SELF / PARTY**, valamint **RUN / BOSS / HEAL** váltók egyetlen DPS meterben. A modern API tényleges source/owner bontását olvassa; a régi API-nak vannak dokumentált korlátai.
+- **Co-op mentési irány**: csak elesett társ esetén jelzés és – megbízható pozíció/adat esetén – irányjelző nyíl. A felélesztés után eltűnik. Kapcsoló: `/hle rescue`.
+- **Sebzésszámok**: normál találat fehér, kritikus találat sárga.
+- **Bag skin**: sötétlila, aranyszegélyes eredeti táskakeret, ritkaságjelzés a tárgyhelyeken. A natív tárgykezelés, drag/drop és tooltip érintetlen. Kapcsoló: `/hle bag`.
+- **Bossjelzés**: a játék valódi boss/finalboss banner eseményére egy egyszeri rövid figyelmeztetés. Kapcsoló: `/hle bossalerts`.
+- **Futam végi összesítő**: a játék saját `AZS_GetRunSummary()` adatainak megjelenítése; halál, győzelem és önkéntes kilépés után is. Kapcsoló: `/hle summary`; a bezárt ablak ismételt megnyitása: `/hle summary show`.
+- **Skill READY-jelzés**: a képességlapon rövid visszajelzés, ha a játék által adott cooldown pozitívról nullára fut. Kapcsoló: `/hle skills`.
+- **Profilok**: az új kapcsolók menthetők és visszatölthetők.
+
+### Biztonságos telepítés
+
+Zárd be a játékot; készíts másolatot az `Interface/AddOns/HolyLightEclipse` mappáról. A ZIP `HolyLightEclipse` mappájával helyettesítsd az előzőt; a `WTF` mappát és mentett beállításokat ne töröld. A régi stabil ZIP visszamásolásával bármikor visszaállhatsz.
+
+### Első ellenőrzés
+
+1. Játékindítás, `/hle status`: nincs-e új Lua/API hiba.
+2. Táska nyit/zár, tárgymozgatás; a felület továbbra is működjön.
+3. SELF/RUN és PARTY/RUN, majd BOSS és HEAL váltók, boss alatt és gyógyításnál.
+4. Bossfigyelmeztetés és skill READY-jelzés; ne villogjanak folyamatosan.
+5. Co-op elesés/felélesztés és nyíl; ne maradjon meg újraélesztés után.
+6. Halál/győzelem/kilépés utáni összesítő; bezárás és újranyitás.
+
+A fenti funkciók kliensoldali működése még nem volt tényleges játékon belül ellenőrizhető.
+
+## 0.9.8-preview – csapattársak bal oldali mentési panelje és csendes értesítések
+
+A jelenlegi arany–lila témát megtartottuk. A fő HUD és a középre igazított bossjelzés elhelyezése változatlan.
+
+- Ha co-opban valaki elesik, a **bal oldal felső felében** megjelenő kis panelben külön sorban, **pirossal** jelenik meg minden elesett csapattárs neve (legfeljebb négy játékos). Nem csak egy összesített „+N” feliratot mutat.
+- A panel alján az iránynyíl továbbra is a legközelebbi, pontosan bemérhető újraélesztési pontra mutat. Ha a játék nem szolgáltat koordinátát, a panel ezt jelzi, de nem talál ki irányt.
+- Az addon az elesett játékosról többé nem ír külön felugró szöveget a képernyő közepére; a chat- és egyszeri hangjelzés megmarad.
+- **Piros bossjelzés**: a saját „BOSS INCOMING” / „FINAL BOSS” cím és a boss neve piros, a korábbi középre igazított panelen.
+- Az alapból aktív **Quiet center notices** beállítás a játék **natív banner-értesítéseit** elrejti, hogy azok ne áraszthassák el a képernyő közepét. Ez nem csak a csapattársakhoz kapcsolódó, hanem például az achievement- és egyéb natív bannerüzeneteket is érinti. A bossfeliratot az addon saját eseménykezelője biztosítja.
+- Visszakapcsolás: `/hle banners`. Ugyanez a beállítás a `/hle settings` menüben is elérhető, és a profilokkal együtt menthető. Az addon kikapcsolásakor a játék natív értesítéseinek előző láthatósági állapota visszaáll.
+- Ha a saját bossfigyelmeztetést kikapcsolod (`/hle bossalerts`), a játék natív bannerjei visszatérnek, hogy a bossérkezés ne maradjon jelzés nélkül.
+
+A javítás automatikus Lua-szintaxis- és szimulált működésvizsgálaton megy keresztül, de élő co-op játékteszt továbbra is szükséges.

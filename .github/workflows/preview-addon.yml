@@ -1,0 +1,70 @@
+name: Package addon preview
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'HolyLightEclipse/**'
+      - '.github/workflows/preview-addon.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check Lua syntax and meter behavior
+        shell: bash
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq lua5.1
+          find HolyLightEclipse -name '*.lua' -type f -print0 | xargs -0 -n 1 luac5.1 -p
+          (cd HolyLightEclipse && lua5.1 Tests/meter_scope.lua)
+          (cd HolyLightEclipse && lua5.1 Tests/feature_panels.lua)
+          (cd HolyLightEclipse && lua5.1 Tests/rescue_banner.lua)
+          (cd HolyLightEclipse && lua5.1 Tests/hc_lifecycle.lua)
+          (cd HolyLightEclipse && lua5.1 Tests/threat_assist.lua)
+          (cd HolyLightEclipse && lua5.1 Tests/settings_launcher.lua)
+          (cd HolyLightEclipse && lua5.1 Tests/encounter_assist.lua)
+          (cd HolyLightEclipse && lua5.1 Tests/banner_cvar_fallback.lua)
+      - name: Build installable folder ZIP
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import hashlib
+          from pathlib import Path
+          from zipfile import ZipFile, ZIP_DEFLATED
+
+          folder = Path("HolyLightEclipse")
+          toc = folder / "HolyLightEclipse.toc"
+          assert toc.is_file(), "Missing addon toc"
+          manifest = [line.strip() for line in toc.read_text(encoding="utf-8").splitlines()
+                      if line.strip() and not line.startswith("#")]
+          for name in manifest:
+              assert (folder / name).is_file(), f"Missing TOC module: {name}"
+          required = ["PartyRescue.lua", "CombatText.lua", "GroupMap.lua", "BagSkin.lua", "BossAlerts.lua", "EndSummary.lua", "View.lua"]
+          assert all((folder / name).is_file() for name in required)
+          out = Path("dist")
+          out.mkdir(exist_ok=True)
+          target = out / "HolyLightEclipse-0.9.12-full-preview.zip"
+          files = sorted(path for path in folder.rglob("*") if path.is_file())
+          with ZipFile(target, "w", ZIP_DEFLATED) as archive:
+              for path in files:
+                  archive.write(path, path.as_posix())
+          with ZipFile(target) as archive:
+              assert archive.testzip() is None
+              assert all(archive.read(path.as_posix()) == path.read_bytes() for path in files)
+          sha256 = hashlib.sha256(target.read_bytes()).hexdigest()
+          (out / "SHA256SUMS-preview.txt").write_text(f"{sha256}  {target.name}\n")
+          print(f"Prepared {target.name}: {len(files)} files, {sha256}")
+          PY
+      - name: Upload installable preview ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: HolyLightEclipse-0.9.12-full-preview
+          path: dist/
+          if-no-files-found: error
+          retention-days: 30

@@ -40,8 +40,11 @@ local function Add(event,now)
     end
     if not slot then return; end
     slot.anchor=event.anchorId; slot.born=born; slot.id=event.eventId;
-    Font(slot.text,event.critical and 22 or 16); slot.text:SetText(H.Short(amount)..(event.critical and "!" or ""));
-    slot.text:SetTextColor(1,event.critical and 0.72 or 0.9,0.30);
+    -- Native critical may be a Lua boolean or numeric 1 (numeric 0 is truthy in Lua).
+    local critical=event.critical==true or event.critical==1;
+    Font(slot.text,critical and 22 or 16); slot.text:SetText(H.Short(amount)..(critical and "!" or ""));
+    if critical then slot.text:SetTextColor(1,0.88,0.16);
+    else slot.text:SetTextColor(1,1,1); end
     slot.lane=math.mod(table.getn(labels),5)-2; slot.holder:Hide();
 end
 local function DrawFrame()

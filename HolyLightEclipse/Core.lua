@@ -1,5 +1,5 @@
 -- Lua 5.0 subset: no _G, #, vararg forwarding or modern WoW APIs.
-HLE = { errors = {}, version = "0.9.5", maxSkills = 32 };
+HLE = { errors = {}, version = "0.9.12-preview", maxSkills = 32 };
 local H = HLE;
 function H.Number(v)
     -- math.huge is absent in the user's client. Finite numbers subtract to zero;
@@ -75,12 +75,14 @@ function H.PlayerAlive()
 end
 function H.EncounterUnitsUpdated()
     local stamp=H.Number(AZS_UNITS_UPDATED);
-    if not H.lifeDead and not H.IsPlayerDead() and
+    if (H.downInRun or (not H.lifeDead and not H.IsPlayerDead())) and
         (not stamp or not H.encounterStarted or stamp>=H.encounterStarted) then H.encounterWaiting=false; end
     H.encounterStamp=H.Number(AZS_UNITS_UPDATED);
 end
 function H.EncountersAllowed(s)
-    if not s.active or s.playerDead or H.lifeDead then return false; end
+    if not s.active or ((s.playerDead or H.lifeDead) and not s.coopDown) then return false; end
+    -- During co-op down state the host's live boss list remains authoritative.
+    if s.coopDown then return true; end
     local stamp=H.Number(AZS_UNITS_UPDATED);
     if H.encounterWaiting and stamp and stamp~=H.encounterStamp and
         (not H.encounterStarted or stamp>=H.encounterStarted) then H.encounterWaiting=false; H.encounterStamp=stamp; end
@@ -99,7 +101,12 @@ end
 function H.Read()
     local s = { player = NativeUnit("player"), target = {}, spells = {}, bosses = {}, guardians = {} };
     s.phase = H.Call("AZS_GetPhase");
-    s.active = s.phase == "playing" or s.phase == "paused" or s.phase == "choosing";
+    s.revive = H.Table(H.Call("AZS_GetRevive"));
+    s.coopDown = s.revive.down==1 or s.revive.down==true;
+    -- The local hero may be down while teammates keep the shared run alive.
+    s.active = s.phase == "playing" or s.phase == "paused" or s.phase == "choosing" or
+        (s.phase=="dead" and s.coopDown);
+    H.downInRun=s.coopDown;
     s.hasAPI = type(AZS_GetPhase) == "function";
     s.level = H.Number(H.Call("UnitLevel", "player"));
     if s.phase == "ready" then
@@ -120,7 +127,7 @@ function H.Read()
     s.player.name = H.Text(z.hero, H.Text(s.player.name));
     local hp, hpm = H.Pair(r.hp, r.hpm);
     if hp then s.player.hp, s.player.hpm = hp, hpm; end
-    s.playerDead=H.IsPlayerDead() or (s.player.hp~=nil and s.player.hp<=0);
+    s.playerDead=s.phase=="dead" or H.IsPlayerDead() or (s.player.hp~=nil and s.player.hp<=0);
     if s.playerDead then
         if not H.lifeDead then H.PlayerDied(); end; H.deathObserved=true;
     elseif H.lifeDead and (not H.deathExplicit or H.deathObserved) then H.PlayerAlive(); end
@@ -128,8 +135,20 @@ function H.Read()
     s.shield = H.Number(r.sh);
     s.xp, s.xpn = H.Pair(r.xp, r.xpn);
     s.level = H.Number(r.lvl);
-    s.time = H.Call("AZS_GetRunTime");
+    s.time = H.Number(H.Call("AZS_GetRunTime"));
+    -- During co-op down state the party's server clock can still advance.
+    -- Only accept values belonging to this very run; never extrapolate fabricated time.
+    if s.coopDown then
+        if H.Number(r.t) and (not s.time or r.t>s.time) then s.time=r.t; end
+        local context=H.Table(H.Call("AZS_GetMeterContext"));
+        if type(z.run)=="string" and context.runId==z.run and H.Number(context.asOfRunSeconds)
+                and (not s.time or context.asOfRunSeconds>s.time) then
+            s.time=context.asOfRunSeconds;
+        end
+    end
     s.zone = H.Text(z.zname, "AZEROTH SURVIVORS");
+    s.heroic = H.Number(z.heroic);
+    s.affixes = type(z.affixes)=="string" and z.affixes or "";
     s.kills, s.gold, s.enemies = H.Number(r.kills), H.Number(r.gold), H.Number(r.en);
     s.elites, s.lives = H.Number(r.el), H.Number(r.lives);
     s.cache = H.Number(r.chest);
