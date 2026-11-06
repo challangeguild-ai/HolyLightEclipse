@@ -489,7 +489,7 @@ local function Command(msg)
         Print(HLE_DB.threatAlerts and "Evidence-only danger alerts: ON." or "Danger alerts: OFF.");
     elseif msg=="bossalerts" then
         HLE_DB.bossAlerts=not HLE_DB.bossAlerts;
-        if not HLE_DB.bossAlerts then H.StopBossAlerts(); end
+        if not HLE_DB.bossAlerts then H.UpdateBossAlerts(H.Read()); end
         H.TakeOver(H.Read());
     elseif msg=="banners" then
         HLE_DB.quietBanners=not HLE_DB.quietBanners;
