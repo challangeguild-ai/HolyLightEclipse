@@ -114,6 +114,8 @@ local function Build()
         Texture(overlay,MEDIA.."Skill04.tga",0,0,64,64,"OVERLAY");
         c.name=Text(overlay,8,6,-6,52,{0.95,0.87,0.69}); c.name:SetHeight(22);
         c.cd=Text(overlay,18,5,-23,54,{1,0.95,0.83}); c.cd:SetJustifyH("CENTER");
+        c.readyText=Text(overlay,9,5,-5,54,{1,0.89,0.38});
+        c.readyText:SetJustifyH("CENTER"); c.readyText:SetText("READY"); c.readyText:Hide();
         c.progress=Bar(overlay,6,-57,52,2,VIOLET); c.progress.label:Hide(); c:EnableMouse(true);
         c:SetScript("OnEnter",function()
             if this.nativeSlot and GameTooltip and GameTooltip.SetAction then
@@ -180,6 +182,7 @@ local function Build()
     H.BuildExtras(Text,Texture,Panel);
     H.BuildGroupMap(Text,Texture,Bar,Panel); H.BuildRescue(); H.BuildBossLoot(Text,Texture); H.BuildTimeline(Text,Texture);
     H.loot=Panel("HLELoot","loot",300,216,"TOP",-295,0); H.BuildLoot(H.loot);
+    H.BuildBossAlerts(); H.BuildEndSummary();
 end
 function H.ClearSkillVisuals()
     if H.ReleaseActionButtons then H.ReleaseActionButtons(); end
@@ -187,6 +190,7 @@ function H.ClearSkillVisuals()
         for i=1,H.maxSkills do
             local c=H.skills[i]; c:Hide(); c.nativeSlot=nil; c.cd:SetText(""); c.name:SetText("");
             c.layoutOrder,c.layoutCount=nil,nil;
+            c.readyUntil=nil; c.lastCooldown=nil; c.lastAbility=nil; c.readyText:Hide();
         end
     end
     H.hasSkills=false; H.lastSkillCount=nil;
@@ -255,6 +259,16 @@ function H.Render(s)
             c.icon:Show();
             if spell.icon then c.icon:SetVertexColor(1,1,1,1); else c.icon:SetVertexColor(0.16,0.08,0.24,1); end
             local cd,maximum=H.Number(spell.cd),H.Number(spell.cdmax);
+            local identity=H.Text(spell.key,H.Text(spell.name,tostring(i)));
+            if c.lastAbility~=identity then c.readyUntil=nil; c.lastCooldown=nil; c.lastAbility=identity; end
+            local now=H.Number(H.Call("GetTime"));
+            if HLE_DB.skillAlerts and not spell.passive and now and
+                c.lastCooldown and c.lastCooldown>0.05 and cd and cd<=0.05 then
+                c.readyUntil=now+1.25;
+            end
+            if cd then c.lastCooldown=cd; else c.lastCooldown=nil; end
+            if HLE_DB.skillAlerts and now and c.readyUntil and now<c.readyUntil then c.readyText:Show();
+            else c.readyText:Hide(); end
             c.name:SetText(spell.icon and "" or H.Text(spell.name,""));
             c.cd:SetText(spell.passive and "" or (cd and (cd>0.05 and (cd<10 and string.format("%.1f",cd) or string.format("%.0f",math.ceil(cd))) or "") or "?"));
             local fraction=cd and maximum and maximum>0 and math.max(0,math.min(1,cd/maximum)) or 0;
@@ -263,6 +277,7 @@ function H.Render(s)
         else
             H.ReleaseActionCard(c); c:Hide(); c.nativeSlot=nil; c.info=nil;
             c.name:SetText(""); c.cd:SetText(""); c.progress:SetValue(0); c.shade:Hide();
+            c.lastCooldown=nil; c.lastAbility=nil; c.readyUntil=nil; c.readyText:Hide();
         end
     end
     local runTime=H.Number(s.time);
@@ -329,6 +344,10 @@ function H.Render(s)
     if not bossLootOK then H.errors.BossLoot=tostring(bossLootError); H.HideBossLoot(); end
     H.UpdateChat(); H.UpdateTracking(s); H.UpdateLegacyBuffs(s);
     H.UpdateExtras(s,0.05);
+    local alertOK,alertError=pcall(H.UpdateBossAlerts,s);
+    if not alertOK then HLE_DB.bossAlerts=false; H.StopBossAlerts(); H.errors.BossAlerts=tostring(alertError); end
+    local summaryOK,summaryError=pcall(H.UpdateEndSummary,s);
+    if not summaryOK then HLE_DB.showEndSummary=false; H.ResetEndSummary(); H.errors.EndSummary=tostring(summaryError); end
 end
 local function Print(msg) if DEFAULT_CHAT_FRAME then DEFAULT_CHAT_FRAME:AddMessage(msg); end end
 local function Visibility()
@@ -338,7 +357,7 @@ local function Visibility()
     end
     if not HLE_DB.showGear or not HLE_DB.enabled then H.ClearEquipment(); end
     if not HLE_DB.showLoot or not HLE_DB.enabled then H.ClearLoot(); end
-    if not HLE_DB.enabled then H.HideBossLoot(); H.RestoreChat(); H.StopCombatText(); H.RestoreNative(); H.RestoreNameplates(); H.ResetTracking(); H.effects:Hide(); H.ClearExtras(); H.RestoreParty(); H.ResetRescue(); H.RestoreMinimap(); H.RestoreLegacyBuffs(); end
+    if not HLE_DB.enabled then H.HideBossLoot(); H.RestoreChat(); H.StopCombatText(); H.RestoreNative(); H.RestoreNameplates(); H.ResetTracking(); H.effects:Hide(); H.ClearExtras(); H.RestoreParty(); H.ResetRescue(); H.RestoreMinimap(); H.RestoreLegacyBuffs(); H.ClearBagSkin(); H.StopBossAlerts(); H.ResetEndSummary(); end
 end
 function H.ApplyLayout()
     for i=1,table.getn(panels) do Position(panels[i]); end
@@ -363,6 +382,15 @@ local function Command(msg)
         HLE_DB.meterScope=string.sub(msg,7); H.meterPage=0; H.ResetMeterCache(); H.Render(H.Read());
     elseif msg=="effects" then HLE_DB.showEffects=not HLE_DB.showEffects; H.UpdateTracking(H.Read());
     elseif msg=="party" then HLE_DB.showParty=not HLE_DB.showParty; H.UpdateParty(H.Read());
+    elseif msg=="bag" then
+        HLE_DB.skinBags=not HLE_DB.skinBags;
+        if not HLE_DB.skinBags then H.ClearBagSkin(); else H.UpdateBagSkin(1); end
+    elseif msg=="skills" then
+        HLE_DB.skillAlerts=not HLE_DB.skillAlerts; H.Render(H.Read());
+    elseif msg=="bossalerts" then
+        HLE_DB.bossAlerts=not HLE_DB.bossAlerts;
+        if not HLE_DB.bossAlerts then H.StopBossAlerts(); end
+    elseif msg=="summary" then H.ToggleEndSummary();
     elseif msg=="rescue" then
         HLE_DB.rescueArrow=not HLE_DB.rescueArrow;
         if HLE_DB.rescueArrow then H.UpdateRescue(H.Read()); else H.ResetRescue(); end
@@ -411,7 +439,7 @@ local function Command(msg)
         local names={"AZS_GetPhase","AZS_GetMeter","AZS_SetHudShown","GetActionTexture","GetActionCooldown"};
         for i=1,table.getn(names) do Print(names[i]..": "..type(getglobal(names[i]))); end
         for name,err in pairs(H.errors) do Print(name..": "..err); end
-    else Print("/hle rescue | damage | healing | meter self | meter party | meter rows 10 | meter width 320 | on | off | native | meter | meter run | meter boss | meter heal | effects | gear | loot | loot clear | plates | plates 1.2 | unlock | lock | reset | scale 0.8 | levels | status"); end
+    else Print("/hle bag | bossalerts | skills | summary | rescue | damage | healing | meter self | meter party | meter rows 10 | meter width 320 | on | off | native | meter | meter run | meter boss | meter heal | effects | gear | loot | loot clear | plates | plates 1.2 | unlock | lock | reset | scale 0.8 | levels | status"); end
 end
 local function Initialize()
     if ready then return; end
@@ -426,6 +454,10 @@ local function Initialize()
     if HLE_DB.showLoot==nil then HLE_DB.showLoot=true; end
     if HLE_DB.showParty==nil then HLE_DB.showParty=true; end
     if HLE_DB.rescueArrow==nil then HLE_DB.rescueArrow=true; end
+    if HLE_DB.skinBags==nil then HLE_DB.skinBags=true; end
+    if HLE_DB.bossAlerts==nil then HLE_DB.bossAlerts=true; end
+    if HLE_DB.showEndSummary==nil then HLE_DB.showEndSummary=true; end
+    if HLE_DB.skillAlerts==nil then HLE_DB.skillAlerts=true; end
     if HLE_DB.showTimeline==nil then HLE_DB.showTimeline=true; end
     if HLE_DB.skinMinimap==nil then HLE_DB.skinMinimap=true; end
     if HLE_DB.showEffects==nil then HLE_DB.showEffects=true; end
@@ -463,17 +495,17 @@ function HLE_OnEvent(evt,name)
     elseif evt=="PLAYER_LOGOUT" or evt=="PLAYER_LEAVING_WORLD" then
         H.RestoreChat(); H.StopCombatText();
         H.RestoreNameplates(); H.ClearEquipment();
-        H.ClearLoot(); H.ResetEncounters("world-leave"); H.ResetTracking(); H.ClearExtras(); H.RestoreParty(); H.ResetRescue(); H.RestoreMinimap(); H.RestoreLegacyBuffs(); H.ResetTimeline(); if H.effects then H.effects:Hide(); end
+        H.ClearLoot(); H.ResetEncounters("world-leave"); H.ResetTracking(); H.ClearExtras(); H.RestoreParty(); H.ResetRescue(); H.RestoreMinimap(); H.RestoreLegacyBuffs(); H.ClearBagSkin(); H.StopBossAlerts(); H.ResetEndSummary(); H.ResetTimeline(); if H.effects then H.effects:Hide(); end
         H.LeaveSkillWorld();
         if ready then H.RestoreNative(); H.suspended=true; end
     elseif evt=="CHAT_MSG_ADDON" then
         H.TrackingEvent(name);
-        if name=="AZSZONE" then H.StartSkillRun("AZSZONE"); H.lifeDead=false; H.deathExplicit=false; H.ResetEncounters("AZSZONE"); H.ClearLoot(); H.ResetTracking(); H.ResetMeterCache(); H.ResetTimeline(); H.ResetRescue();
+        if name=="AZSZONE" then H.StartSkillRun("AZSZONE"); H.lifeDead=false; H.deathExplicit=false; H.ResetEncounters("AZSZONE"); H.ClearLoot(); H.ResetTracking(); H.ResetMeterCache(); H.ResetTimeline(); H.ResetRescue(); H.ResetBossAlerts(); H.ResetEndSummary();
         elseif name=="AZSBOSSES" then H.TimelineUpdated();
         elseif name=="AZSSPELLS" then H.SpellsUpdated();
         elseif name=="AZSUNITS" then H.EncounterUnitsUpdated(); end
     elseif evt=="ADDON_LOADED" and name=="HolyLightEclipse" or evt=="PLAYER_LOGIN" or evt=="PLAYER_ENTERING_WORLD" then
-        if evt=="PLAYER_ENTERING_WORLD" then H.suspended=false; H.EnterSkillWorld(); H.lifeDead=false; H.deathExplicit=false; H.ResetEncounters("world-enter"); H.ResetMeterCache(); H.ResetTimeline(); H.ResetRescue(); end
+        if evt=="PLAYER_ENTERING_WORLD" then H.suspended=false; H.EnterSkillWorld(); H.lifeDead=false; H.deathExplicit=false; H.ResetEncounters("world-enter"); H.ResetMeterCache(); H.ResetTimeline(); H.ResetRescue(); H.StopBossAlerts(); H.ResetEndSummary(); end
         Initialize();
     end
 end
@@ -497,6 +529,8 @@ function HLE_OnUpdate(delta)
                 Print("Equipment panel paused: "..tostring(message));
             end
         end
+        local bagOK,bagError=pcall(H.UpdateBagSkin,tick);
+        if not bagOK then HLE_DB.skinBags=false; H.ClearBagSkin(); H.errors.BagSkin=tostring(bagError); end
         if HLE_DB.showLoot then
             local success,message=pcall(H.UpdateLoot,tick);
             if not success then
