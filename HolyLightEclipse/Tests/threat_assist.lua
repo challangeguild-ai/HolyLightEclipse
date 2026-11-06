@@ -85,4 +85,11 @@ clock=71;s.player.hp=20;HLE.UpdateThreatAssist(s);
 HLE.UpdateBossAlerts(s);
 assert(HLE.bossWarning:IsShown() and HLE.bossWarning.title.text=="DANGER - LOW HEALTH",
     "Boss-alert setting unexpectedly suppressed independent danger warnings");
-print("HC danger warnings: actual HP only, no spam, no false affix casts, priority and reset passed");
+-- End-user settings must drive the same verified HP alerts, without sound spam.
+HLE_DB.threatLowPct=40;HLE_DB.threatCooldown=6;HLE_DB.threatSound=false;
+AZS_ZONE.run="runC";s.player.hp=100;clock=80;HLE.UpdateThreatAssist(s);
+clock=81;s.player.hp=39;HLE.UpdateThreatAssist(s);
+assert(HLE.bossWarning:IsShown() and HLE.bossWarning.title.text=="DANGER - LOW HEALTH",
+    "Custom low-HP threshold is not connected to alerts")
+assert(sounds==4,"Muting danger sound did not work")
+print("HC danger warnings: actual HP only, user threshold/sound, no spam and reset passed");
